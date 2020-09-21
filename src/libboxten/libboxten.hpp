@@ -1,0 +1,9 @@
+#pragma once
+#include "audiofile.hpp"
+#include "console.hpp"
+#include "eventhook.hpp"
+#include "playback.hpp"
+#include "playlist.hpp"
+#include "plugin.hpp"
+#include "type.hpp"
+#include "worker.hpp"

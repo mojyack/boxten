@@ -1,0 +1,4 @@
+#pragma once
+#define PREFIX "@prefix@"
+#define DATADIR "@datadir@"
+#mesondefine DEBUG
