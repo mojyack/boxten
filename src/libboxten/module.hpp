@@ -8,6 +8,8 @@
 #include "type.hpp"
 
 namespace boxten {
+typedef std::array<std::string, 2> ComponentName;
+
 u64                open_modules(std::vector<std::filesystem::path> lib_dirs);
-boxten::Component* search_component(std::array<std::string, 2> name);
+boxten::Component* search_component(ComponentName name);
 } // namespace boxten

@@ -85,7 +85,7 @@ std::vector<std::filesystem::path> get_module_dirs() {
     }
     return config_data["module_path"].get<std::vector<std::filesystem::path>>();
 }
-std::array<std::string, 2> get_input_component() {
+boxten::ComponentName get_input_component() {
     auto&                       config_data = boxten::config::get_configuration_ref();
     std::lock_guard<std::mutex> lock(boxten::config::get_configuration_lock_ref());
 #define TEST(cond) \
@@ -103,12 +103,12 @@ std::array<std::string, 2> get_input_component() {
 #undef TEST
     if(failback) {
         boxten::console << "configuration \"input_component\" is invalid." << std::endl;
-        config_data["input_component"] = std::array<std::string, 2>{"Wav input module", "Wav input"};
+        config_data["input_component"] = boxten::ComponentName{"Wav input module", "Wav input"};
         boxten::config::save_config();
     }
-    return config_data["input_component"].get<std::array<std::string, 2>>();
+    return config_data["input_component"].get<boxten::ComponentName>();
 }
-std::array<std::string, 2> get_output_component() {
+boxten::ComponentName get_output_component() {
     auto&                       config_data = boxten::config::get_configuration_ref();
     std::lock_guard<std::mutex> lock(boxten::config::get_configuration_lock_ref());
 #define TEST(cond) \
@@ -126,10 +126,10 @@ std::array<std::string, 2> get_output_component() {
 #undef TEST
     if(failback) {
         boxten::console << "configuration \"output_component\" is invalid." << std::endl;
-        config_data["output_component"] = std::array<std::string, 2>{"ALSA output module", "ALSA output"};
+        config_data["output_component"] = boxten::ComponentName{"ALSA output module", "ALSA output"};
         boxten::config::save_config();
     }
-    return config_data["output_component"].get<std::array<std::string, 2>>();
+    return config_data["output_component"].get<boxten::ComponentName>();
 }
 bool load_layout(BaseWindow& base_window) {
     auto&                       config_data = boxten::config::get_configuration_ref();
@@ -178,7 +178,7 @@ bool load_layout(BaseWindow& base_window) {
                 result = false;
                 return;
             }
-            auto name      = name_cfg.get<std::array<std::string, 2>>();
+            auto name      = name_cfg.get<boxten::ComponentName>();
             auto component = boxten::search_component(name);
             if(component == nullptr) {
                 boxten::console << "cannot find component: " << name[0] << "/" << name[1] << std::endl;

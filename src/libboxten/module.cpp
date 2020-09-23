@@ -6,7 +6,7 @@
 
 namespace boxten {
 namespace {
-std::vector<boxten::Module*> modules;
+std::vector<Module*> modules;
 } // namespace
 
 u64 open_modules(std::vector<std::filesystem::path> lib_dirs) {
@@ -17,7 +17,7 @@ u64 open_modules(std::vector<std::filesystem::path> lib_dirs) {
                 console << "dlopen failed: " << dlerror() << std::endl;
                 continue;
             }
-            auto install_modules = (std::vector<boxten::Module*>(*)())dlsym(lib, "install_modules");
+            auto install_modules = (std::vector<Module*>(*)())dlsym(lib, "install_modules");
             if(install_modules == NULL) {
                 console << "dlsym failed: " << dlerror() << std::endl;
                 continue;
@@ -28,7 +28,7 @@ u64 open_modules(std::vector<std::filesystem::path> lib_dirs) {
     }
     return modules.size();
 }
-boxten::Component* search_component(std::array<std::string, 2> name) {
+Component* search_component(ComponentName name) {
     for(auto m : modules) {
         if(m->module_name != name[0]) continue;
         for(auto c : m->component_catalogue) {
