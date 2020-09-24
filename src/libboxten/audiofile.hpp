@@ -1,8 +1,9 @@
 #pragma once
 #include <filesystem>
 #include <fstream>
-#include <iostream>
 #include <functional>
+#include <iostream>
+#include <map>
 
 #include "type.hpp"
 
@@ -14,12 +15,13 @@ class AudioFile {
     const std::filesystem::path path;
     std::ifstream               handle;
 
-    n_frames               total_frames = 0;
-    std::vector<Playlist*> playlists; // playlists witch this file added.
+    n_frames                   total_frames = 0;
 
     void*                      input_module_private_data = nullptr;
     std::function<void(void*)> input_module_private_data_deleter;
     void                       free_input_module_private_data();
+
+    std::map<std::string, std::string> tags;
 
   public:
     std::ifstream&        get_handle();
@@ -27,7 +29,6 @@ class AudioFile {
     void                  set_private_data(void* data, std::function<void(void*)> deleter);
     void*                 get_private_data();
 
-    void     set_total_frames(n_frames frames);
     n_frames get_total_frames();
 
     AudioFile(std::filesystem::path path) : path(path) {}

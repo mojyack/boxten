@@ -1,4 +1,5 @@
 #include "audiofile.hpp"
+#include "playback_internal.hpp"
 
 namespace boxten{
 void AudioFile::free_input_module_private_data(){
@@ -26,10 +27,10 @@ void AudioFile::set_private_data(void* data, std::function<void(void*)> deleter)
 void* AudioFile::get_private_data(){
     return input_module_private_data;
 }
-void AudioFile::set_total_frames(n_frames frames){
-    total_frames = frames;
-}
 n_frames AudioFile::get_total_frames(){
+    if(total_frames == 0) {
+        total_frames = boxten::get_total_frames(this);
+    }
     return total_frames;
 }
 

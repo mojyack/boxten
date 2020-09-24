@@ -22,15 +22,6 @@ struct {
 std::mutex filled_frame_pos_lock;
 bool       end_of_playlist     = false; // If true, all of playlist were sent to buffer already.
 bool       finish_fill_buffer_thread = false;
-n_frames   get_frames(AudioFile& audio) {
-    // this function should be implemented in AudioFile class, but stream_input is needed
-    auto total = audio.get_total_frames();
-    if(total == 0) {
-        total = stream_input->calc_total_frames(audio);
-        audio.set_total_frames(total);
-    }
-    return total;
-}
 void       fill_buffer() {
     while(1) {
         std::unique_lock<std::mutex> lock(buffer.need_fill_buffer_lock);
@@ -42,11 +33,11 @@ void       fill_buffer() {
             LOCK_GUARD_D(filled_frame_pos_lock, lock);
             LOCK_GUARD_D(playing_playlist->mutex(), plock);
             auto&    audio_file  = *(*playing_playlist)[filled_frame_pos.song];
-            n_frames frames_left = get_frames(audio_file) - (filled_frame_pos.frame + 1);
+            n_frames frames_left = audio_file.get_total_frames() - (filled_frame_pos.frame + 1);
             n_frames to_read     = frames_left >= PCMPACKET_PERIOD ? PCMPACKET_PERIOD : frames_left;
             auto     packet      = stream_input->read_frame(audio_file, filled_frame_pos.frame, to_read);
             filled_frame_pos.frame += packet.get_frames();
-            if(filled_frame_pos.frame + 1 >= get_frames(audio_file)) {
+            if(filled_frame_pos.frame + 1 >= audio_file.get_total_frames()) {
                 if(filled_frame_pos.song + 1 == playing_playlist->size()){
                     end_of_playlist = true;
                 } else {
@@ -170,7 +161,7 @@ void proc_seek_rate_abs(f64 rate) {
     LOCK_GUARD_D(filled_frame_pos_lock, lock);
     LOCK_GUARD_D(playing_playlist->mutex(), plock);
     auto& audio_file = *(*playing_playlist)[filled_frame_pos.song];
-    filled_frame_pos.frame = get_frames(audio_file) * rate;
+    filled_frame_pos.frame = audio_file.get_total_frames() * rate;
     buffer.clear();
 }
 void proc_seek_rate_rel(f64 rate) {
@@ -181,7 +172,7 @@ void proc_seek_rate_rel(f64 rate) {
     auto&    audio_file = *(*playing_playlist)[filled_frame_pos.song];
 
     filled_frame_pos.frame *= rate;
-    if(filled_frame_pos.frame + 1 >= get_frames(audio_file)) {
+    if(filled_frame_pos.frame + 1 >= audio_file.get_total_frames()) {
         if(filled_frame_pos.song == playing_playlist->size()) {
             end_of_playlist = true;
         } else {
@@ -268,7 +259,7 @@ n_frames get_playing_song_length() {
     LOCK_GUARD_D(playing_playlist->mutex(), plock);
 
     auto& audio_file = *(*playing_playlist)[filled_frame_pos.song];
-    return get_frames(audio_file);
+    return audio_file.get_total_frames();
 }
 bool get_if_playlist_left() {
     return !end_of_playlist;
@@ -281,6 +272,13 @@ void set_stream_input(StreamInput* input) {
 void set_stream_output(StreamOutput* output) {
     stream_output = output;
 }
+void start_playback_thread() {
+    playback_thread.start();
+}
+void finish_playback_thread() {
+    playback_thread.finish();
+}
+
 void set_playlist(Playlist* playlist) {
     stop_playback(true);
     playing_playlist = playlist;
@@ -289,11 +287,32 @@ void unset_playlist() {
     stop_playback(true);
     playing_playlist = nullptr;
 }
-void start_playback_thread() {
-    playback_thread.start();
+void playing_playlist_insert(u64 pos, AudioFile* audio_file) {
+    // playing_playlist->mutex() must be locked
+    // Because this function only be called from Playlist::proc_insert()
+    LOCK_GUARD_D(filled_frame_pos_lock, lock);
+
+    if(pos > filled_frame_pos.song) {
+        /* New music will be inserted after playing music. Nothing to do. */
+    } else {
+        /* correction filled_frame_pos */
+        filled_frame_pos.song++;
+    }
+    return;
 }
-void finish_playback_thread(){
-    playback_thread.finish();
+void playing_playlist_erase(u64 pos) {
+    // playing_playlist->mutex() must be locked
+    // Because this function only be called from Playlist::erase()
+    LOCK_GUARD_D(filled_frame_pos_lock, lock);
+
+    if(pos > filled_frame_pos.song) {
+        /* The music is after playing music. Nothing to do. */
+    } else if(pos < filled_frame_pos.song) {
+        filled_frame_pos.song--;
+    } else { // pos == playing_music_num
+        filled_frame_pos.frame = 0;
+    }
+    return;
 }
 
 n_frames get_buffer_filled_frames() {
@@ -324,31 +343,7 @@ PCMPacket get_buffer_pcm_packet(n_frames frames) {
 PCMFormat get_buffer_pcm_format(){
     return buffer.get_next_format();
 }
-void playing_playlist_insert(u64 pos, AudioFile* audio_file) {
-    // playing_playlist->mutex() must be locked
-    // Because this function only be called from Playlist::proc_insert()
-    LOCK_GUARD_D(filled_frame_pos_lock, lock);
-
-    if(pos > filled_frame_pos.song) {
-        /* New music will be inserted after playing music. Nothing to do. */
-    } else {
-        /* correction filled_frame_pos */
-        filled_frame_pos.song++;
-    }
-    return;
-}
-void playing_playlist_erase(u64 pos){
-    // playing_playlist->mutex() must be locked
-    // Because this function only be called from Playlist::erase()
-    LOCK_GUARD_D(filled_frame_pos_lock, lock);
-
-    if(pos > filled_frame_pos.song) {
-        /* The music is after playing music. Nothing to do. */
-    } else if(pos < filled_frame_pos.song) {
-        filled_frame_pos.song--;
-    } else { // pos == playing_music_num
-        filled_frame_pos.frame = 0;
-    }
-    return;
+n_frames get_total_frames(AudioFile* audio_file){
+    return stream_input->calc_total_frames(*audio_file);
 }
 } // namespace boxten
