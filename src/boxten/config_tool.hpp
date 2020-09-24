@@ -4,11 +4,13 @@
 #include <vector>
 #include <string>
 
+#include <module.hpp>
+#include <type.hpp>
+
 #include "gui.hpp"
 
-
 std::filesystem::path find_config_dir();
-std::vector<std::filesystem::path> get_module_dirs();
-std::array<std::string, 2>         get_input_component();
-std::array<std::string, 2>         get_output_component();
-bool                               load_layout(BaseWindow& base_window);
+bool                  get_module_dirs(std::vector<std::filesystem::path>& dirs);
+bool                  get_input_component(boxten::ComponentName& c_name);
+bool                  get_output_component(boxten::ComponentName& c_name);
+bool                  apply_layout(BaseWindow& base_window, boxten::LayoutData layout);

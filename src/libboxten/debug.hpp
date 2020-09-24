@@ -34,14 +34,14 @@ void debug_pring_worker_start(const char* file, int line, char icon);
 };
 
 #ifdef USE_LOCK_GUARD_D
-#define LOCK_GUARD_D(mutex, func, name) LockGuardWithDebug name(#mutex, #func, mutex, __FILE__, __LINE__)
+#define LOCK_GUARD_D(mutex, name) LockGuardWithDebug name(#mutex, __func__, mutex, __FILE__, __LINE__)
 #else
-#define LOCK_GUARD_D(m, f, name) std::lock_guard<std::mutex> name(m)
+#define LOCK_GUARD_D(m, name) std::lock_guard<std::mutex> name(m)
 #endif
 
 #define WORKER_BEGIN debug_pring_worker_start(__FILE__, __LINE__, '{')
 #define WORKER_FINISH debug_pring_worker_start(__FILE__, __LINE__, '}')
-#define DEBUG_OUT(message) std::cout << message << __FILE__ << __LINE__ << std::endl;
+#define DEBUG_OUT(message) std::cout << message << __FILE__ << " : " << __func__ << "(" << __LINE__ << ")" << std::endl;
 #elif
 #define WORKER_BEGIN
 #define WORKER_FINISH

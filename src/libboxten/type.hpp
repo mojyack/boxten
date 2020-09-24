@@ -82,4 +82,15 @@ struct PCMPacketUnit {
     }
 };
 typedef std::vector<PCMPacketUnit> PCMPacket;
+typedef std::array<std::string, 2> ComponentName;
+struct LayoutData {
+    enum {
+        UNKNOWN,
+        H_SPLIT,
+        V_SPLIT,
+        WIDGET
+    } type;
+    boxten::ComponentName   name;
+    std::vector<LayoutData> children;
+};
 } // namespace boxten

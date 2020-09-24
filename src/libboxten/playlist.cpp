@@ -56,10 +56,10 @@ std::mutex playing_playlist_lock;
 } // namespace
 
 void Playlist::proc_insert(std::filesystem::path path, iterator pos){
-    LOCK_GUARD_D(audio_files_lock, Playlist::proc_insert, aflock);
+    LOCK_GUARD_D(audio_files_lock, aflock);
 
     auto audio_file_ref = audio_files.get_audio_ref(path);
-    LOCK_GUARD_D(playing_playlist_lock, Playlist::proc_insert, pplock);
+    LOCK_GUARD_D(playing_playlist_lock, pplock);
     if(playing_playlist == this) {
         auto& lock = playing_playlist_insert(std::distance(begin(), pos), audio_file_ref);
         playlist_member.emplace_back(audio_file_ref);
@@ -70,7 +70,7 @@ void Playlist::proc_insert(std::filesystem::path path, iterator pos){
 }
 void Playlist::activate() {
     boxten::set_playlist(this);
-    LOCK_GUARD_D(playing_playlist_lock, Playlist::set_playing, lock);
+    LOCK_GUARD_D(playing_playlist_lock, lock);
     playing_playlist = this;
 }
 std::mutex& Playlist::mutex() {
@@ -90,7 +90,7 @@ void Playlist::insert(std::filesystem::path path, iterator pos) {
 }
 void Playlist::erase(iterator pos){
     auto to_erase_audio = *pos;
-    LOCK_GUARD_D(playing_playlist_lock, Playlist::proc_insert, pplock);
+    LOCK_GUARD_D(playing_playlist_lock, pplock);
     if(playing_playlist == this) {
         auto& lock = playing_playlist_erase(std::distance(begin(), pos));
         playlist_member.erase(pos);
@@ -113,12 +113,12 @@ AudioFile* Playlist::operator[](u64 n) {
 }
 Playlist::~Playlist() {
     {
-        LOCK_GUARD_D(playing_playlist_lock, Playlist::set_playing, pplock);
+        LOCK_GUARD_D(playing_playlist_lock, pplock);
         if(playing_playlist == this) {
             DEBUG_OUT("Deleting playing playlist!");
         }
     }
-    LOCK_GUARD_D(playlist_member_lock, Playlist::~Playlist, pmlock);
+    LOCK_GUARD_D(playlist_member_lock, pmlock);
     clear();
 }
 }

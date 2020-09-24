@@ -29,7 +29,7 @@ class QueueThread {
             {
                 std::unique_lock<std::mutex> clock(queue_changed_lock);
                 queue_changed_cond.wait(clock, [&]() { return queue_changed || finish_thread; });
-                LOCK_GUARD_D(queue_lock, loop, lock);
+                LOCK_GUARD_D(queue_lock, lock);
                 queue_processing = true;
                 queue_to_proc = queue;
                 queue.clear();
@@ -53,22 +53,23 @@ class QueueThread {
     }
     void enqueue(T data){
         {
-            LOCK_GUARD_D(queue_lock, enqueue, lock);
+            LOCK_GUARD_D(queue_lock, lock);
             queue.emplace_back(data);
         }
         {
-            LOCK_GUARD_D(queue_changed_lock, enqueue, lock);
+            LOCK_GUARD_D(queue_changed_lock, lock);
             queue_changed = true;
             queue_changed_cond.notify_one();
         }
     }
     std::mutex& wait_empty() {
-        while(1) {
-            LOCK_GUARD_D(queue_lock, wait_empty, lock);
+        while(!finish_thread) {
+            LOCK_GUARD_D(queue_lock, lock);
             if(queue.empty() && !queue_processing) {
-                return queue_lock;
+                break;
             }
         }
+        return queue_lock;
     }
     virtual ~QueueThread(){}
 };
