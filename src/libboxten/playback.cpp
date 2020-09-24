@@ -324,14 +324,10 @@ PCMPacket get_buffer_pcm_packet(n_frames frames) {
 PCMFormat get_buffer_pcm_format(){
     return buffer.get_next_format();
 }
-std::mutex& playing_playlist_insert(u64 pos, AudioFile* audio_file) {
+void playing_playlist_insert(u64 pos, AudioFile* audio_file) {
     // playing_playlist->mutex() must be locked
     // Because this function only be called from Playlist::proc_insert()
-    LOCK_GUARD_D(playback_thread.wait_empty(), lock);
-
-    filled_frame_pos_lock.lock();
-
-    if(playback_state == PLAYBACK_STATE::STOPPED) return filled_frame_pos_lock;
+    LOCK_GUARD_D(filled_frame_pos_lock, lock);
 
     if(pos > filled_frame_pos.song) {
         /* New music will be inserted after playing music. Nothing to do. */
@@ -339,16 +335,12 @@ std::mutex& playing_playlist_insert(u64 pos, AudioFile* audio_file) {
         /* correction filled_frame_pos */
         filled_frame_pos.song++;
     }
-    return filled_frame_pos_lock;
+    return;
 }
-std::mutex& playing_playlist_erase(u64 pos){
+void playing_playlist_erase(u64 pos){
     // playing_playlist->mutex() must be locked
     // Because this function only be called from Playlist::erase()
-    LOCK_GUARD_D(playback_thread.wait_empty(), lock);
-
-    filled_frame_pos_lock.lock();
-
-    if(playback_state == PLAYBACK_STATE::STOPPED) return filled_frame_pos_lock;
+    LOCK_GUARD_D(filled_frame_pos_lock, lock);
 
     if(pos > filled_frame_pos.song) {
         /* The music is after playing music. Nothing to do. */
@@ -357,6 +349,6 @@ std::mutex& playing_playlist_erase(u64 pos){
     } else { // pos == playing_music_num
         filled_frame_pos.frame = 0;
     }
-    return filled_frame_pos_lock;
+    return;
 }
 } // namespace boxten

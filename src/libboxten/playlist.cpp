@@ -61,12 +61,9 @@ void Playlist::proc_insert(std::filesystem::path path, iterator pos){
     auto audio_file_ref = audio_files.get_audio_ref(path);
     LOCK_GUARD_D(playing_playlist_lock, pplock);
     if(playing_playlist == this) {
-        auto& lock = playing_playlist_insert(std::distance(begin(), pos), audio_file_ref);
-        playlist_member.emplace_back(audio_file_ref);
-        lock.unlock();
-    } else {
-        playlist_member.emplace_back(audio_file_ref);
+        playing_playlist_insert(std::distance(begin(), pos), audio_file_ref);
     }
+    playlist_member.emplace_back(audio_file_ref);
 }
 void Playlist::activate() {
     boxten::set_playlist(this);
@@ -92,12 +89,9 @@ void Playlist::erase(iterator pos){
     auto to_erase_audio = *pos;
     LOCK_GUARD_D(playing_playlist_lock, pplock);
     if(playing_playlist == this) {
-        auto& lock = playing_playlist_erase(std::distance(begin(), pos));
-        playlist_member.erase(pos);
-        lock.unlock();
-    } else {
-        playlist_member.erase(pos);
+        playing_playlist_erase(std::distance(begin(), pos));
     }
+    playlist_member.erase(pos);
     audio_files.release_audio_ref(to_erase_audio);
 }
 void Playlist::clear() {
