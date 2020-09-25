@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <vector>
+#include <map>
 
 typedef std::int8_t i8;
 typedef std::int16_t i16;
@@ -81,8 +82,9 @@ struct PCMPacketUnit {
         return pcm.size() / format.get_bytewidth() / format.channels;
     }
 };
-typedef std::vector<PCMPacketUnit> PCMPacket;
-typedef std::array<std::string, 2> ComponentName;
+typedef std::vector<PCMPacketUnit>         PCMPacket;
+typedef std::array<std::string, 2>         ComponentName;
+typedef std::map<std::string, std::string> AudioTag;
 struct LayoutData {
     enum {
         UNKNOWN,

@@ -45,5 +45,4 @@ package_config.generate(libraries : libboxten,
              version : '1.0',
              name : 'libboxten',
              filebase : 'libboxten',
-             description : 'libboxten',
-             datadir : datadir)
+             description : 'libboxten')

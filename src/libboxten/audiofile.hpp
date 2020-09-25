@@ -21,7 +21,8 @@ class AudioFile {
     std::function<void(void*)> input_module_private_data_deleter;
     void                       free_input_module_private_data();
 
-    std::map<std::string, std::string> tags;
+    bool     tags_updated = false;
+    AudioTag tags;
 
   public:
     std::ifstream&        get_handle();
@@ -30,6 +31,7 @@ class AudioFile {
     void*                 get_private_data();
 
     n_frames get_total_frames();
+    AudioTag get_tags();
 
     AudioFile(std::filesystem::path path) : path(path) {}
     ~AudioFile();

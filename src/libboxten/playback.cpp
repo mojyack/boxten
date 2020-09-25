@@ -35,7 +35,7 @@ void       fill_buffer() {
             auto&    audio_file  = *(*playing_playlist)[filled_frame_pos.song];
             n_frames frames_left = audio_file.get_total_frames() - (filled_frame_pos.frame + 1);
             n_frames to_read     = frames_left >= PCMPACKET_PERIOD ? PCMPACKET_PERIOD : frames_left;
-            auto     packet      = stream_input->read_frame(audio_file, filled_frame_pos.frame, to_read);
+            auto     packet      = stream_input->read_frames(audio_file, filled_frame_pos.frame, to_read);
             filled_frame_pos.frame += packet.get_frames();
             if(filled_frame_pos.frame + 1 >= audio_file.get_total_frames()) {
                 if(filled_frame_pos.song + 1 == playing_playlist->size()){
@@ -343,7 +343,11 @@ PCMPacket get_buffer_pcm_packet(n_frames frames) {
 PCMFormat get_buffer_pcm_format(){
     return buffer.get_next_format();
 }
+
 n_frames get_total_frames(AudioFile* audio_file){
     return stream_input->calc_total_frames(*audio_file);
+}
+AudioTag get_tags(AudioFile* audio_file){
+    return stream_input->read_tags(*audio_file);
 }
 } // namespace boxten

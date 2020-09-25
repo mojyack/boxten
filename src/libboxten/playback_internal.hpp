@@ -24,4 +24,5 @@ PCMFormat get_buffer_pcm_format();
 
 /* AudioFile */
 n_frames get_total_frames(AudioFile* audio_file);
+AudioTag get_tags(AudioFile* audio_file);
 } // namespace boxten

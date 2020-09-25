@@ -42,8 +42,9 @@ class SoundProcessor : public Component {
 
 class StreamInput : public Component {
   public:
-    virtual PCMPacketUnit read_frame(AudioFile& file, u64 from, n_frames frames) = 0;
-    virtual n_frames      calc_total_frames(AudioFile& file)                     = 0;
+    virtual PCMPacketUnit read_frames(AudioFile& file, u64 from, n_frames frames) = 0;
+    virtual n_frames      calc_total_frames(AudioFile& file)                      = 0;
+    virtual AudioTag      read_tags(AudioFile& file)                              = 0;
     StreamInput(void* param) : Component(param) {}
     virtual ~StreamInput(){}
 };

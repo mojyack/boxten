@@ -33,7 +33,13 @@ n_frames AudioFile::get_total_frames(){
     }
     return total_frames;
 }
-
+AudioTag AudioFile::get_tags() {
+    if(!tags_updated) {
+        tags         = boxten::get_tags(this);
+        tags_updated = true;
+    }
+    return tags;
+}
 AudioFile::~AudioFile(){
     free_input_module_private_data();
     if(handle.is_open()) handle.close();
