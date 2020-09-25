@@ -158,7 +158,7 @@ bool load_configuration(nlohmann::json& result, const char* module_name) {
     load_config_file(path, result);
     return true;
 }
-bool save_configuration_file(const nlohmann::json& config_data, const char* module_name) {
+bool save_configuration(const nlohmann::json& config_data, const char* module_name) {
     std::filesystem::path path;
     if(!get_config_path(module_name, path)) return false;
     save_config(path, config_data);

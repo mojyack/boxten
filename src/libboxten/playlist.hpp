@@ -18,7 +18,7 @@ class Playlist {
   public:
     void        set_name(const char* new_name);
     std::string get_name();
-    
+
     void        activate();
     std::mutex& mutex(); // lock this before call following functions
     iterator    begin();
@@ -28,6 +28,7 @@ class Playlist {
     void        erase(iterator pos);
     void        clear();
     u64         size();
+    bool        empty();
     AudioFile*  operator[](u64 n);
     Playlist() = default;
     ~Playlist();

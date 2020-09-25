@@ -110,6 +110,9 @@ void Playlist::clear() {
 u64 Playlist::size() {
     return playlist_member.size();
 }
+bool Playlist::empty(){
+    return playlist_member.empty();
+}
 AudioFile* Playlist::operator[](u64 n) {
     return playlist_member[n];
 }

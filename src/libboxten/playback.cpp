@@ -32,7 +32,11 @@ void       fill_buffer() {
         while(buffer.free_frame() >= PCMPACKET_PERIOD && !end_of_playlist) {
             LOCK_GUARD_D(filled_frame_pos_lock, lock);
             LOCK_GUARD_D(playing_playlist->mutex(), plock);
-            auto&    audio_file  = *(*playing_playlist)[filled_frame_pos.song];
+            if(filled_frame_pos.song >= playing_playlist->size()){
+                end_of_playlist = true;
+                continue;
+            }
+            auto& audio_file = *(*playing_playlist)[filled_frame_pos.song];
             n_frames frames_left = audio_file.get_total_frames() - (filled_frame_pos.frame + 1);
             n_frames to_read     = frames_left >= PCMPACKET_PERIOD ? PCMPACKET_PERIOD : frames_left;
             auto     packet      = stream_input->read_frames(audio_file, filled_frame_pos.frame, to_read);
@@ -40,6 +44,7 @@ void       fill_buffer() {
             if(filled_frame_pos.frame + 1 >= audio_file.get_total_frames()) {
                 if(filled_frame_pos.song + 1 == playing_playlist->size()){
                     end_of_playlist = true;
+                    continue;
                 } else {
                     filled_frame_pos.song++;
                     filled_frame_pos.frame = 0;
@@ -108,6 +113,8 @@ void proc_start_playback() {
         return;
     }
 
+    if(LOCK_GUARD_D(playing_playlist->mutex(), plock); playing_playlist->empty()) return;
+
     LOCK_GUARD_D(filled_frame_pos_lock, lock);
     filled_frame_pos.song = 0;
     filled_frame_pos.frame = 0;
@@ -160,6 +167,8 @@ void proc_seek_rate_abs(f64 rate) {
     if(rate > 1.0) return;
     LOCK_GUARD_D(filled_frame_pos_lock, lock);
     LOCK_GUARD_D(playing_playlist->mutex(), plock);
+
+    if(filled_frame_pos.song >= playing_playlist->size()) return;
     auto& audio_file = *(*playing_playlist)[filled_frame_pos.song];
     filled_frame_pos.frame = audio_file.get_total_frames() * rate;
     buffer.clear();
@@ -169,8 +178,9 @@ void proc_seek_rate_rel(f64 rate) {
     if(rate > 1.0) return;
     LOCK_GUARD_D(filled_frame_pos_lock, lock);
     LOCK_GUARD_D(playing_playlist->mutex(), plock);
-    auto&    audio_file = *(*playing_playlist)[filled_frame_pos.song];
 
+    if(filled_frame_pos.song >= playing_playlist->size()) return;
+    auto& audio_file = *(*playing_playlist)[filled_frame_pos.song];
     filled_frame_pos.frame *= rate;
     if(filled_frame_pos.frame + 1 >= audio_file.get_total_frames()) {
         if(filled_frame_pos.song == playing_playlist->size()) {
@@ -258,6 +268,7 @@ n_frames get_playing_song_length() {
     LOCK_GUARD_D(filled_frame_pos_lock, flock);
     LOCK_GUARD_D(playing_playlist->mutex(), plock);
 
+    if(filled_frame_pos.song >= playing_playlist->size()) return 0;
     auto& audio_file = *(*playing_playlist)[filled_frame_pos.song];
     return audio_file.get_total_frames();
 }
@@ -312,6 +323,7 @@ void playing_playlist_erase(u64 pos) {
     } else { // pos == playing_music_num
         filled_frame_pos.frame = 0;
     }
+    if(playing_playlist->empty()) stop_playback();
     return;
 }
 
