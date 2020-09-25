@@ -8,12 +8,17 @@ class Playlist {
     typedef std::vector<AudioFile*>::iterator iterator;
 
   private:
+    std::string             name;
+    std::mutex              name_lock;
     std::vector<AudioFile*> playlist_member;
     std::mutex              playlist_member_lock;
 
     void proc_insert(std::filesystem::path path, iterator pos);
 
   public:
+    void        set_name(const char* new_name);
+    std::string get_name();
+    
     void        activate();
     std::mutex& mutex(); // lock this before call following functions
     iterator    begin();

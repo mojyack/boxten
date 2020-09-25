@@ -55,6 +55,14 @@ Playlist*  playing_playlist = nullptr;
 std::mutex playing_playlist_lock;
 } // namespace
 
+void Playlist::set_name(const char* new_name) {
+    LOCK_GUARD_D(name_lock, lock);
+    name = new_name;
+}
+std::string Playlist::get_name() {
+    LOCK_GUARD_D(name_lock, lock);
+    return name;
+}
 void Playlist::proc_insert(std::filesystem::path path, iterator pos){
     LOCK_GUARD_D(audio_files_lock, aflock);
 
