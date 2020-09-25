@@ -6,41 +6,16 @@
 #include "console.hpp"
 #include "debug.hpp"
 #include "json.hpp"
+#include "jsontest.hpp"
 #include <config.h>
 
 namespace boxten::config {
 namespace {
-enum JSON_TYPE {
-    OBJECT,
-    STRING,
-    ARRAY,
-};
+
 
 std::filesystem::path config_home_dir;
 std::filesystem::path config_path;
 
-bool type_check(const char* key, JSON_TYPE type, const nlohmann::json& cfg ) {
-    if(!cfg.contains(key)) {
-        DEBUG_OUT(key << "was not found.");
-        return false;
-    }
-    bool result;
-    switch(type) {
-    case JSON_TYPE::OBJECT:
-        result = cfg[key].is_object();
-        break;
-    case JSON_TYPE::STRING:
-        result = cfg[key].is_string();
-        break;
-    case JSON_TYPE::ARRAY:
-        result = cfg[key].is_array();
-        break;
-    }
-    if(!result) {
-        DEBUG_OUT("key " << key << " type mismatch.");
-    }
-    return result;
-}
 void save_config(const std::filesystem::path path, const nlohmann::json& cfg) {
     std::ofstream handle(path);
     handle << std::setw(4) << cfg << std::endl;

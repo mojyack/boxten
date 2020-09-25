@@ -8,7 +8,8 @@ libboxten_headers = [
     'playlist.hpp',
     'worker.hpp',
     'eventhook.hpp',
-    'json.hpp'
+    'json.hpp',
+    'jsontest.hpp',
 ]
 
 libboxten_sources = [
@@ -23,6 +24,7 @@ libboxten_sources = [
     'module.cpp',
     'eventhook.cpp',
     'debug.cpp',
+    'jsontest.cpp',
 ]
 
 libboxten_include_dir = include_directories('.')
