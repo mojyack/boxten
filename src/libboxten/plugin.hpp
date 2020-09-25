@@ -21,6 +21,7 @@ class Configurator {
     bool get_string(const char* key, std::string& result);
     bool get_string_array(const char* key, std::vector<std::string>& result);
     void set_string_array(const char* key, const std::vector<std::string>& data);
+    bool get_number(const char* key, i64& result);
     bool get_configuration_file_path(std::filesystem::path& path);
 
     Configurator(const char* domain);

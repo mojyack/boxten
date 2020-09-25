@@ -40,7 +40,7 @@ bool get_config_path(const char* module_name, std::filesystem::path& path) {
 
 bool get_string(const char* key, std::string& result, const nlohmann::json& cfg) {
     if(!type_check(key, JSON_TYPE::STRING, cfg)) return false;
-    result = cfg[key];
+    result = cfg[key].get<std::string>();
     return true;
 }
 bool get_string_array(const char* key, std::vector<std::string>& result, const nlohmann::json& cfg) {
@@ -52,6 +52,11 @@ bool get_string_array(const char* key, std::vector<std::string>& result, const n
             result.emplace_back(s.get<std::string>());
         }
     }
+    return true;
+}
+bool get_number(const char* key, i64& result, const nlohmann::json& cfg) {
+    if(!type_check(key, JSON_TYPE::NUMBER, cfg)) return false;
+    result = cfg[key].get<i64>();
     return true;
 }
 
@@ -140,6 +145,12 @@ void set_string_array(const char* key, const std::vector<std::string>& data, con
     load_config_file(path, config_data);
     config_data[key] = data;
     save_config(path, config_data);
+}
+bool get_number(const char* key, i64& result, const char* module_name){
+    nlohmann::json        config_data;
+    std::filesystem::path path;
+    if(!get_config_path(module_name, path) || !load_config_file(path, config_data)) return false;
+    return get_number(key, result, config_data);
 }
 bool get_configuration_file_path(std::filesystem::path path, const char* module_name){
     return get_config_path(module_name, path);

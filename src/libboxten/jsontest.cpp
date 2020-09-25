@@ -14,6 +14,9 @@ bool proc_type_check(JSON_TYPE type, const nlohmann::json& cfg) {
     case JSON_TYPE::ARRAY:
         result = cfg.is_array();
         break;
+    case JSON_TYPE::NUMBER:
+        result = cfg.is_number_integer() || cfg.is_number_unsigned();
+        break;
     }
     return result;
 }
