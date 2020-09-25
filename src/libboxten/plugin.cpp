@@ -19,13 +19,13 @@ void Component::install_eventhook(std::function<void(void)> hook, std::initializ
     }
 }
 bool Component::get_string(const char* key, std::string& result){
-    return boxten::config::get_string(key, result, component_name);
+    return boxten::config::get_string(key, result, component_name[0].data());
 }
 bool Component::get_string_array(const char* key, std::vector<std::string>& result){
-    return boxten::config::get_string_array(key, result, component_name);
+    return boxten::config::get_string_array(key, result, component_name[0].data());
 }
 void Component::set_string_array(const char* key, const std::vector<std::string>& data){
-    boxten::config::set_string_array(key, data, component_name);
+    boxten::config::set_string_array(key, data, component_name[0].data());
 }
 
 Component::Component(void* param) : 

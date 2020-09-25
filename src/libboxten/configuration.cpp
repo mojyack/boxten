@@ -51,9 +51,9 @@ bool load_config_file(const std::filesystem::path path, nlohmann::json& cfg) {
     handle >> cfg;
     return true;
 }
-bool get_config_path(const ComponentName& name, std::filesystem::path& path) {
+bool get_config_path(const char* module_name, std::filesystem::path& path) {
     path = config_home_dir;
-    if(name != boxten_component_name) path /= name[0];
+    if(std::strcmp(module_name, boxten_module_name) != 0) path /= module_name;
     if(!std::filesystem::exists(path)) {
         std::filesystem::create_directory(path);
     } else if(!std::filesystem::is_directory(path)) {
@@ -95,7 +95,7 @@ bool get_component_name(const char* key, ComponentName& result, const nlohmann::
 bool set_config_dir(std::filesystem::path config_dir) {
     if(!std::filesystem::is_directory(config_dir)) return false;
     config_home_dir = config_dir;
-    return get_config_path(boxten_component_name, config_path);
+    return get_config_path(boxten_module_name, config_path);
 }
 bool get_layout_config(LayoutData& layout) {
     constexpr const char* key = "layout";
@@ -146,21 +146,21 @@ bool get_layout_config(LayoutData& layout) {
         return false;
 }
 
-bool get_string(const char* key, std::string& result, const ComponentName& name){
+bool get_string(const char* key, std::string& result, const char* module_name) {
     nlohmann::json config_data;
     std::filesystem::path path;
-    if(!get_config_path(name, path) || !load_config_file(path, config_data)) return false;
+    if(!get_config_path(module_name, path) || !load_config_file(path, config_data)) return false;
     return get_string(key, result, config_data);
 }
-bool get_string_array(const char* key, std::vector<std::string>& result, const ComponentName& name) {
+bool get_string_array(const char* key, std::vector<std::string>& result, const char* module_name) {
     nlohmann::json        config_data;
     std::filesystem::path path;
-    if(!get_config_path(name, path) || !load_config_file(path, config_data)) return false;
+    if(!get_config_path(module_name, path) || !load_config_file(path, config_data)) return false;
     return get_string_array(key, result, config_data);
 }
-void set_string_array(const char* key, const std::vector<std::string>& data, const ComponentName& name) {
+void set_string_array(const char* key, const std::vector<std::string>& data, const char* module_name) {
     std::filesystem::path path;
-    if(!get_config_path(name, path)) return;
+    if(!get_config_path(module_name, path)) return;
     nlohmann::json config_data;
     load_config_file(path, config_data);
     config_data[key] = data;
