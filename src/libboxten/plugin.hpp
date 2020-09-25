@@ -94,6 +94,12 @@ struct ComponentInfo {
     }
 
 class Module {
+  protected:
+    /* configuration */
+    bool get_string(const char* key, std::string& result);
+    bool get_string_array(const char* key, std::vector<std::string>& result);
+    void set_string_array(const char* key, const std::vector<std::string>& data);
+
   public:
     const char*                     module_name;
     std::vector<ComponentInfo>      component_catalogue;
