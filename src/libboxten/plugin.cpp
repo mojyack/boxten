@@ -27,6 +27,9 @@ bool Component::get_string_array(const char* key, std::vector<std::string>& resu
 void Component::set_string_array(const char* key, const std::vector<std::string>& data){
     boxten::config::set_string_array(key, data, component_name[0].data());
 }
+bool Component::get_configuration_file_path(std::filesystem::path& path){
+    return boxten::config::get_configuration_file_path(path, component_name[0].data());
+}
 
 Component::Component(void* param) : 
     component_name({
@@ -59,5 +62,8 @@ bool Module::get_string_array(const char* key, std::vector<std::string>& result)
 }
 void Module::set_string_array(const char* key, const std::vector<std::string>& data) {
     boxten::config::set_string_array(key, data, module_name);
+}
+bool Module::get_configuration_file_path(std::filesystem::path& path) {
+    return boxten::config::get_configuration_file_path(path, module_name);
 }
 }

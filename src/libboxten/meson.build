@@ -8,6 +8,7 @@ libboxten_headers = [
     'playlist.hpp',
     'worker.hpp',
     'eventhook.hpp',
+    'json.hpp'
 ]
 
 libboxten_sources = [

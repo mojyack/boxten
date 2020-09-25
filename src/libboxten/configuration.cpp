@@ -166,4 +166,7 @@ void set_string_array(const char* key, const std::vector<std::string>& data, con
     config_data[key] = data;
     save_config(path, config_data);
 }
+bool get_configuration_file_path(std::filesystem::path path, const char* module_name){
+    return get_config_path(module_name, path);
+}
 } // namespace boxten

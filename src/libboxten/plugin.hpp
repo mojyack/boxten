@@ -25,6 +25,7 @@ class Component {
     bool get_string(const char* key, std::string& result);
     bool get_string_array(const char* key, std::vector<std::string>& result);
     void set_string_array(const char* key, const std::vector<std::string>& data);
+    bool get_configuration_file_path(std::filesystem::path& path);
 
   public:
     const ComponentName                       component_name;
@@ -99,7 +100,7 @@ class Module {
     bool get_string(const char* key, std::string& result);
     bool get_string_array(const char* key, std::vector<std::string>& result);
     void set_string_array(const char* key, const std::vector<std::string>& data);
-
+    bool get_configuration_file_path(std::filesystem::path& path);
   public:
     const char*                     module_name;
     std::vector<ComponentInfo>      component_catalogue;
