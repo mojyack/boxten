@@ -18,9 +18,13 @@ void Configurator::set_string_array(const char* key, const std::vector<std::stri
 bool Configurator::get_number(const char* key, i64& result) {
     return boxten::config::get_number(key, result, domain.data());
 }
-bool Configurator::get_configuration_file_path(std::filesystem::path& path) {
-    return boxten::config::get_configuration_file_path(path, domain.data());
+bool Configurator::load_configuration(nlohmann::json& config_data) {
+    return boxten::config::load_configuration(config_data, domain.data());
 }
+bool Configurator::save_configuration(const nlohmann::json& config_data){
+    return boxten::config::save_configuration(config_data, domain.data());
+}
+
 Configurator::Configurator(const char* domain):domain(domain){}
 
 std::filesystem::path Component::get_resource_dir(){

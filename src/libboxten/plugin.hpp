@@ -3,6 +3,7 @@
 
 #include "audiofile.hpp"
 #include "eventhook.hpp"
+#include "json.hpp"
 #include "type.hpp"
 
 namespace boxten {
@@ -22,7 +23,8 @@ class Configurator {
     bool get_string_array(const char* key, std::vector<std::string>& result);
     void set_string_array(const char* key, const std::vector<std::string>& data);
     bool get_number(const char* key, i64& result);
-    bool get_configuration_file_path(std::filesystem::path& path);
+    bool load_configuration(nlohmann::json& config_data);
+    bool save_configuration(const nlohmann::json& config_data);
 
     Configurator(const char* domain);
 };
@@ -101,7 +103,7 @@ struct ComponentInfo {
         delete dynamic_cast<component_name*>(arg); \
     }
 
-class Module : Configurator {
+class Module : public Configurator {
   public:
     const char*                     module_name;
     std::vector<ComponentInfo>      component_catalogue;

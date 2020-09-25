@@ -152,7 +152,16 @@ bool get_number(const char* key, i64& result, const char* module_name){
     if(!get_config_path(module_name, path) || !load_config_file(path, config_data)) return false;
     return get_number(key, result, config_data);
 }
-bool get_configuration_file_path(std::filesystem::path path, const char* module_name){
-    return get_config_path(module_name, path);
+bool load_configuration(nlohmann::json& result, const char* module_name) {
+    std::filesystem::path path;
+    if(!get_config_path(module_name, path)) return false;
+    load_config_file(path, result);
+    return true;
+}
+bool save_configuration_file(const nlohmann::json& config_data, const char* module_name) {
+    std::filesystem::path path;
+    if(!get_config_path(module_name, path)) return false;
+    save_config(path, config_data);
+    return true;
 }
 } // namespace boxten
