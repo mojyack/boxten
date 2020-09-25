@@ -38,21 +38,29 @@ bool get_module_dirs(std::vector<std::filesystem::path>& dirs) {
 }
 bool get_input_component(boxten::ComponentName& c_name){
     constexpr const char* key = "input_component";
-    if(boxten::config::get_component_name(key, c_name)) {
+    std::vector<std::string> str_array;
+    if(!boxten::config::get_string_array(key, str_array) || str_array.size() != 2) {
+        DEBUG_OUT("failed to get input component path.");
+        boxten::config::set_string_array(key, {"Wav input module", "Wav input"});
+        return true;
+    }else{
+        c_name[0] = str_array[0];
+        c_name[1] = str_array[1];
         return true;
     }
-    DEBUG_OUT("failed to get input component path.");
-    boxten::config::set_component_name(key, boxten::ComponentName{"Wav input module", "Wav input"});
-    return true;
 }
 bool get_output_component(boxten::ComponentName& c_name) {
-    constexpr const char* key = "output_component";
-    if(boxten::config::get_component_name(key, c_name)) {
+    constexpr const char*    key = "output_component";
+    std::vector<std::string> str_array;
+    if(!boxten::config::get_string_array(key, str_array) || str_array.size() != 2) {
+        DEBUG_OUT("failed to get output component path.");
+        boxten::config::set_string_array(key, {"ALSA output module", "ALSA output"});
+        return true;
+    } else {
+        c_name[0] = str_array[0];
+        c_name[1] = str_array[1];
         return true;
     }
-    DEBUG_OUT("failed to get output component path.");
-    boxten::config::set_component_name(key, boxten::ComponentName{"ALSA output module", "ALSA output"});
-    return true;
 }
 bool apply_layout(BaseWindow& base_window, boxten::LayoutData layout){
     bool result = true;

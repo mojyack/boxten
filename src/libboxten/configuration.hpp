@@ -3,15 +3,17 @@
 #include <filesystem>
 #include <mutex>
 
-#include "plugin.hpp"
+#include "type.hpp"
 
 namespace boxten::config {
-bool set_config_dir(std::filesystem::path config_dir); /* call this first! */
-bool get_string(const char* key, std::string& result);
-bool get_string_array(const char* key, std::vector<std::string>& result);
-void set_string_array(const char* key, const std::vector<std::string>& data);
+/* for boxten */
+inline const ComponentName boxten_component_name = {"boxten", "boxten"};
 
-bool get_component_name(const char* key, ComponentName& result);
-void set_component_name(const char* key, const ComponentName& data);
+bool set_config_dir(std::filesystem::path config_dir); /* call this first! */
 bool get_layout_config(LayoutData& layout);
+
+/* for plugin */
+bool get_string(const char* key, std::string& result, const ComponentName& component_name = boxten_component_name);
+bool get_string_array(const char* key, std::vector<std::string>& result, const ComponentName& component_name = boxten_component_name);
+void set_string_array(const char* key, const std::vector<std::string>& data, const ComponentName& component_name = boxten_component_name);
 } // namespace boxten

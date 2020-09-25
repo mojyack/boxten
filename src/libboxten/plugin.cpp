@@ -1,14 +1,15 @@
 #include "plugin.hpp"
 #include "config.h"
+#include "configuration.hpp"
+#include "eventhook_internal.hpp"
 #include "module_forward.hpp"
 #include "playback_internal.hpp"
-#include "eventhook_internal.hpp"
 
 namespace boxten{
 std::filesystem::path Component::get_resource_dir(){
     if(resource_dir.empty()) {
         resource_dir = DATADIR;
-        resource_dir /= module_name;
+        resource_dir /= component_name[0];
     }
     return resource_dir;
 }
@@ -17,12 +18,21 @@ void Component::install_eventhook(std::function<void(void)> hook, std::initializ
         boxten::install_eventhook(hook, e, this);
     }
 }
+bool Component::get_string(const char* key, std::string& result){
+    return boxten::config::get_string(key, result, component_name);
+}
+bool Component::get_string_array(const char* key, std::vector<std::string>& result){
+    return boxten::config::get_string_array(key, result, component_name);
+}
+void Component::set_string_array(const char* key, const std::vector<std::string>& data){
+    boxten::config::set_string_array(key, data, component_name);
+}
 
 Component::Component(void* param) : 
-component_name(reinterpret_cast<ComponentConstructionParam*>(param)->info.name),
-component_type(reinterpret_cast<ComponentConstructionParam*>(param)->info.type),
-module_name(reinterpret_cast<ComponentConstructionParam*>(param)->module_name),
-free(reinterpret_cast<ComponentConstructionParam*>(param)->info.free) {
+    component_name({
+        reinterpret_cast<ComponentConstructionParam*>(param)->module_name,reinterpret_cast<ComponentConstructionParam*>(param)->info.name}),
+    component_type(reinterpret_cast<ComponentConstructionParam*>(param)->info.type),
+    free(reinterpret_cast<ComponentConstructionParam*>(param)->info.free) {
 }
 Component::~Component(){
     uninstall_eventhook(this);

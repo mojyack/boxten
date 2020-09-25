@@ -21,10 +21,14 @@ class Component {
     std::filesystem::path get_resource_dir();
     void                  install_eventhook(std::function<void(void)> hook, std::initializer_list<EVENT> events);
     
+    /* configuration */
+    bool get_string(const char* key, std::string& result);
+    bool get_string_array(const char* key, std::vector<std::string>& result);
+    void set_string_array(const char* key, const std::vector<std::string>& data);
+
   public:
-    const std::string    component_name;
-    const COMPONENT_TYPE component_type;
-    const std::string    module_name;
+    const ComponentName                       component_name;
+    const COMPONENT_TYPE                      component_type;
     const std::function<void(Component* arg)> free;
     Component(void* param);
     virtual ~Component();

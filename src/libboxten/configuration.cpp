@@ -18,8 +18,6 @@ enum JSON_TYPE {
 
 std::filesystem::path config_home_dir;
 std::filesystem::path config_path;
-nlohmann::json        config_data;
-std::mutex            config_data_lock;
 
 bool type_check(const char* key, JSON_TYPE type, const nlohmann::json& cfg ) {
     if(!cfg.contains(key)) {
@@ -43,10 +41,28 @@ bool type_check(const char* key, JSON_TYPE type, const nlohmann::json& cfg ) {
     }
     return result;
 }
-void save_config() {
-    std::ofstream config_file(config_path);
-    config_file << std::setw(4) << config_data << std::endl;
+void save_config(const std::filesystem::path path, const nlohmann::json& cfg) {
+    std::ofstream handle(path);
+    handle << std::setw(4) << cfg << std::endl;
 }
+bool load_config_file(const std::filesystem::path path, nlohmann::json& cfg) {
+    if(!std::filesystem::is_regular_file(path)) return false;
+    std::ifstream handle(path);
+    handle >> cfg;
+    return true;
+}
+bool get_config_path(const ComponentName& name, std::filesystem::path& path) {
+    path = config_home_dir;
+    if(name != boxten_component_name) path /= name[0];
+    if(!std::filesystem::exists(path)) {
+        std::filesystem::create_directory(path);
+    } else if(!std::filesystem::is_directory(path)) {
+        return false;
+    }
+    path /= "config.json";
+    return true;
+}
+
 bool get_string(const char* key, std::string& result, const nlohmann::json& cfg) {
     if(!type_check(key, JSON_TYPE::STRING, cfg)) return false;
     result = cfg[key];
@@ -64,7 +80,7 @@ bool get_string_array(const char* key, std::vector<std::string>& result, const n
     return true;
 }
 
-bool get_component_name(const char* key, ComponentName& result, const nlohmann::json& cfg){
+bool get_component_name(const char* key, ComponentName& result, const nlohmann::json& cfg) {
     std::vector<std::string> name;
     if(!get_string_array(key, name, cfg) || name.size() != 2) {
         DEBUG_OUT(key << " is not module name.");
@@ -76,41 +92,15 @@ bool get_component_name(const char* key, ComponentName& result, const nlohmann::
 }
 } // namespace
 
-bool set_config_dir(std::filesystem::path config_dir){
+bool set_config_dir(std::filesystem::path config_dir) {
     if(!std::filesystem::is_directory(config_dir)) return false;
     config_home_dir = config_dir;
-    {
-        config_path = config_home_dir;
-        config_path.append("config.json");
-        if(!std::filesystem::is_regular_file(config_path)) return true;
-        std::ifstream config_file(config_path);
-        config_file >> config_data;
-    }
-    return true;
-}
-bool get_string(const char* key, std::string& result) {
-    LOCK_GUARD_D(config_data_lock, lock);
-    return get_string(key, result, config_data);
-}
-bool get_string_array(const char* key, std::vector<std::string>& result) {
-    LOCK_GUARD_D(config_data_lock, lock);
-    return get_string_array(key, result, config_data);
-}
-void set_string_array(const char* key, const std::vector<std::string>& data){
-    LOCK_GUARD_D(config_data_lock, lock);
-    config_data[key] = data;
-    save_config();
-}
-bool get_component_name(const char* key, ComponentName& result){
-    LOCK_GUARD_D(config_data_lock, lock);
-    return get_component_name(key, result, config_data);
-}
-void set_component_name(const char* key, const ComponentName& data){
-    set_string_array(key, std::vector<std::string>{data[0], data[1]});
+    return get_config_path(boxten_component_name, config_path);
 }
 bool get_layout_config(LayoutData& layout) {
     constexpr const char* key = "layout";
-    LOCK_GUARD_D(config_data_lock, lock);
+    nlohmann::json        config_data;
+    if(!load_config_file(config_path, config_data)) return false;
     if(!type_check(key, JSON_TYPE::OBJECT, config_data)) return false;
 
     bool success = true;
@@ -154,5 +144,26 @@ bool get_layout_config(LayoutData& layout) {
         return true;
     else
         return false;
+}
+
+bool get_string(const char* key, std::string& result, const ComponentName& name){
+    nlohmann::json config_data;
+    std::filesystem::path path;
+    if(!get_config_path(name, path) || !load_config_file(path, config_data)) return false;
+    return get_string(key, result, config_data);
+}
+bool get_string_array(const char* key, std::vector<std::string>& result, const ComponentName& name) {
+    nlohmann::json        config_data;
+    std::filesystem::path path;
+    if(!get_config_path(name, path) || !load_config_file(path, config_data)) return false;
+    return get_string_array(key, result, config_data);
+}
+void set_string_array(const char* key, const std::vector<std::string>& data, const ComponentName& name) {
+    std::filesystem::path path;
+    if(!get_config_path(name, path)) return;
+    nlohmann::json config_data;
+    load_config_file(path, config_data);
+    config_data[key] = data;
+    save_config(path, config_data);
 }
 } // namespace boxten
