@@ -13,19 +13,25 @@ enum COMPONENT_TYPE {
     WIDGET,
 };
 
-class Component {
+class Configurator {
+  private:
+    std::string domain;
+
+  protected:
+    bool get_string(const char* key, std::string& result);
+    bool get_string_array(const char* key, std::vector<std::string>& result);
+    void set_string_array(const char* key, const std::vector<std::string>& data);
+    bool get_configuration_file_path(std::filesystem::path& path);
+
+    Configurator(const char* domain);
+};
+class Component : public Configurator {
   private:
     std::filesystem::path resource_dir;
 
   protected:
     std::filesystem::path get_resource_dir();
     void                  install_eventhook(std::function<void(void)> hook, std::initializer_list<EVENT> events);
-    
-    /* configuration */
-    bool get_string(const char* key, std::string& result);
-    bool get_string_array(const char* key, std::vector<std::string>& result);
-    void set_string_array(const char* key, const std::vector<std::string>& data);
-    bool get_configuration_file_path(std::filesystem::path& path);
 
   public:
     const ComponentName                       component_name;
@@ -94,16 +100,11 @@ struct ComponentInfo {
         delete dynamic_cast<component_name*>(arg); \
     }
 
-class Module {
-  protected:
-    /* configuration */
-    bool get_string(const char* key, std::string& result);
-    bool get_string_array(const char* key, std::vector<std::string>& result);
-    void set_string_array(const char* key, const std::vector<std::string>& data);
-    bool get_configuration_file_path(std::filesystem::path& path);
+class Module : Configurator {
   public:
     const char*                     module_name;
     std::vector<ComponentInfo>      component_catalogue;
+    Module(const char* module_name);
     virtual ~Module() = 0;
 };
 } // namespace boxten
