@@ -30,16 +30,16 @@ class Configurator {
 };
 class Component : public Configurator {
   private:
-    std::filesystem::path resource_dir;
+    std::filesystem::path     resource_dir;
+    std::function<void(void)> decrement_component_count;
 
   protected:
     std::filesystem::path get_resource_dir();
     void                  install_eventhook(std::function<void(void)> hook, std::initializer_list<EVENT> events);
 
   public:
-    const ComponentName                       component_name;
-    const COMPONENT_TYPE                      component_type;
-    const std::function<void(Component* arg)> free;
+    const ComponentName  component_name;
+    const COMPONENT_TYPE component_type;
     Component(void* param);
     virtual ~Component();
 };
@@ -108,6 +108,6 @@ class Module : public Configurator {
     const char*                     module_name;
     std::vector<ComponentInfo>      component_catalogue;
     Module(const char* module_name);
-    virtual ~Module() = 0;
+    virtual ~Module();
 };
 } // namespace boxten

@@ -8,6 +8,7 @@
 #include "type.hpp"
 
 namespace boxten {
-u64                open_modules(std::vector<std::filesystem::path> lib_dirs);
+u64                scan_modules(std::vector<std::filesystem::path> lib_dirs);
 boxten::Component* search_component(ComponentName name);
+bool               close_component(boxten::Component* component);
 } // namespace boxten

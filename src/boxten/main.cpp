@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
     if(std::vector<std::filesystem::path> module_dirs; !get_module_dirs(module_dirs)) {
         exit(1);
     } else {
-        boxten::open_modules(module_dirs);
+        boxten::scan_modules(module_dirs);
     }
 
     /* set input&output component */

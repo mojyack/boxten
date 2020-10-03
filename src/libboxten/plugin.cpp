@@ -41,12 +41,13 @@ void Component::install_eventhook(std::function<void(void)> hook, std::initializ
 }
 Component::Component(void* param) : 
     Configurator(reinterpret_cast<ComponentConstructionParam*>(param)->module_name.data()),
+    decrement_component_count(reinterpret_cast<ComponentConstructionParam*>(param)->decrement_component_count),
     component_name({
         reinterpret_cast<ComponentConstructionParam*>(param)->module_name,reinterpret_cast<ComponentConstructionParam*>(param)->info.name}),
-    component_type(reinterpret_cast<ComponentConstructionParam*>(param)->info.type),
-    free(reinterpret_cast<ComponentConstructionParam*>(param)->info.free){}
+    component_type(reinterpret_cast<ComponentConstructionParam*>(param)->info.type){}
 Component::~Component(){
     uninstall_eventhook(this);
+    decrement_component_count();
 }
 
 n_frames StreamOutput::output_delay() {
@@ -62,4 +63,5 @@ PCMFormat StreamOutput::get_buffer_pcm_format(){
     return boxten::get_buffer_pcm_format();
 }
 Module::Module(const char* module_name) : Configurator(module_name), module_name(module_name) {}
+Module::~Module(){}
 } // namespace boxten
