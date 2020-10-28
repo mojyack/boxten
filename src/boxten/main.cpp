@@ -29,17 +29,18 @@ int main(int argc, char* argv[]) {
         exit(1);
     }
 
+    /* load modules */
     if(std::vector<std::filesystem::path> module_dirs; !get_module_dirs(module_dirs)) {
         exit(1);
     } else {
         boxten::scan_modules(module_dirs);
     }
-
+    boxten::Component *input_component, *output_component;
     /* set input&output component */
     {
         boxten::ComponentName input_component_name;
         get_input_component(input_component_name);
-        auto input_component = boxten::search_component(input_component_name);
+        input_component = boxten::search_component(input_component_name);
         if(input_component == nullptr) {
             boxten::console << "cannot find input conponent" << std::endl;
             exit(1);
@@ -49,7 +50,7 @@ int main(int argc, char* argv[]) {
     {
         boxten::ComponentName output_component_name;
         get_output_component(output_component_name);
-        auto output_component  = boxten::search_component(output_component_name);
+        output_component  = boxten::search_component(output_component_name);
         if(output_component == nullptr) {
             boxten::console << "cannot find output conponent" << std::endl;
             exit(1);
@@ -58,21 +59,26 @@ int main(int argc, char* argv[]) {
     }
 
     /* load layout */
-    QApplication application(argc, argv);
-    BaseWindow   base_window;
+    QApplication       application(argc, argv);
+    auto               base_window = new BaseWindow;
     boxten::LayoutData layout;
     if(!boxten::config::get_layout_config(layout)) {
         DEBUG_OUT("cannot load layout config.");
         exit(1);
     }
-    if(!apply_layout(base_window, layout)) {
+    if(!apply_layout(*base_window, layout)) {
         boxten::console << "cannot set layout." << std::endl;
         exit(1);
     }
 
-    base_window.show();
+    base_window->show();
     application.exec();
-    boxten::stop_playback();
+    boxten::stop_playback(true);
+    delete base_window;
+
+    boxten::close_component(input_component);
+    boxten::close_component(output_component);
+    boxten::free_modules();
 
     boxten::finish_hook_invoker();
     boxten::finish_playback_thread();

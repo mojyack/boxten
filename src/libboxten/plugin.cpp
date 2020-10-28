@@ -48,6 +48,7 @@ Component::Component(void* param) :
 Component::~Component(){
     uninstall_eventhook(this);
     decrement_component_count();
+    DEBUG_OUT("component \"" << component_name[1] << "\" closed.");
 }
 
 n_frames StreamOutput::output_delay() {

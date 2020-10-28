@@ -94,6 +94,26 @@ struct ComponentInfo {
                   std::function<Component*(void* arg)> alloc,
                   std::function<void(Component* arg)>  free) : name(name), type(type), alloc(alloc), free(free) {}
 };
+typedef std::vector<ComponentInfo> ComponentCatalogue;
+
+#define BOXTEN_MODULE(...)                                                           \
+    extern "C" const char                       module_name[]       = MODULE_NAME;   \
+    extern "C" const boxten::ComponentCatalogue component_catalogue = {__VA_ARGS__}; \
+
+#define BOXTEN_MODULE_CLASS(ON_LOAD_FUNC, ON_UNLOAD_FUNC)              \
+    class BoxtenModule : public boxten::Module {                       \
+      public:                                                          \
+        BoxtenModule() : boxten::Module(MODULE_NAME) { ON_LOAD_FUNC; } \
+        ~BoxtenModule() { ON_UNLOAD_FUNC; }                            \
+    };                                                                 \
+    extern "C" {                                                       \
+    boxten::Module* install_module() {                                 \
+        return new BoxtenModule;                                       \
+    }                                                                  \
+    void uninstall_module(boxten::Module* module) {                    \
+        delete module;                                                 \
+    }                                                                  \
+    }
 
 #define CATALOGUE_CALLBACK(component_name)         \
     [](void* arg) -> boxten::Component* {          \
@@ -103,10 +123,10 @@ struct ComponentInfo {
         delete dynamic_cast<component_name*>(arg); \
     }
 
-class Module : public Configurator {
+    class Module : public Configurator {
   public:
-    const char*                     module_name;
-    std::vector<ComponentInfo>      component_catalogue;
+    const char*        module_name;
+    ComponentCatalogue component_catalogue;
     Module(const char* module_name);
     virtual ~Module();
 };

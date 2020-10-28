@@ -112,7 +112,8 @@ Worker::Worker(std::function<void(void)> function){
 Worker::Worker() {}
 Worker::~Worker(){
     if(worker_thread != nullptr){
-        console << "Worker not joined!" << std::endl;
+        DEBUG_OUT("Worker not joined!");
+        std::terminate();
     };
 }
 }
