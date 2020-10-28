@@ -10,6 +10,7 @@
 namespace boxten {
 u64                scan_modules(std::vector<std::filesystem::path> lib_dirs);
 void               free_modules();
+void               free_inactive_modules();
 boxten::Component* search_component(ComponentName name);
 bool               close_component(boxten::Component* component);
 } // namespace boxten

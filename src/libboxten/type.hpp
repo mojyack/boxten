@@ -1,7 +1,8 @@
 #pragma once
 #include <cstdint>
-#include <vector>
 #include <map>
+#include <string>
+#include <vector>
 
 typedef std::int8_t i8;
 typedef std::int16_t i16;

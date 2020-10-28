@@ -25,71 +25,112 @@ typedef void (*UninstallModuleFunc)(Module*);
 namespace {
 class LibraryInfo {
   private:
-    void*   library_handle   = nullptr;
-    bool    has_module_class = true;
-    Module* module_instance;
+    std::filesystem::path library_path;
+    void*                 library_handle = nullptr;
+    std::string           module_name;
+    struct SimpleComponentCatalogue {
+        std::string    name;
+        COMPONENT_TYPE type;
+    };
+    std::vector<SimpleComponentCatalogue> component_catalogue;
+    
+    bool                                  has_module_class = true;
+    Module*                               module_instance;
 
     InstallModuleFunc   install_module;
     UninstallModuleFunc uninstall_module;
-    const char*         exported_module_name;
     ComponentCatalogue* exported_component_catalogue;
 
     u64 active_component_count = 0;
 
+    void load_library();
+    void unload_library();
+    void create_module();
+    void destroy_module();
     void increment_component_count();
     void decrement_component_count();
 
   public:
     std::pair<Component*, std::function<void(Component* arg)>> find_component(const ComponentName& component_name);
+    void                                                       check_and_unload_library();
     LibraryInfo(const char* path);
     ~LibraryInfo();
 };
 } // namespace
 
+void LibraryInfo::load_library(){
+    DO_STATEMENT(dlopen(library_path.string().data(), RTLD_LAZY), library_handle = var,
+                 DEBUG_OUT("cannot open library file(dlopen failed: " << dlerror() << ")");
+                 throw;);
+}
+void LibraryInfo::unload_library(){
+    if(active_component_count != 0) {
+        DEBUG_OUT("closing module \"" << module_name << "\" which has active component.");
+    }
+    dlclose(library_handle);
+    library_handle = nullptr;
+}
+void LibraryInfo::create_module() {
+    has_module_class = true;
+    FIND_SYM("install_module", InstallModuleFunc, install_module, nullptr, has_module_class = false);
+    FIND_SYM("uninstall_module", UninstallModuleFunc, uninstall_module, nullptr, has_module_class = false);
+    if(has_module_class) module_instance = (*install_module)();
+}
+void LibraryInfo::destroy_module() {
+    if(has_module_class) (*uninstall_module)(module_instance);
+}
 void LibraryInfo::increment_component_count(){
     if(active_component_count == 0) {
-        if(has_module_class) module_instance = (*install_module)();
+        load_library();
+        create_module();
+        FIND_SYM("component_catalogue", ComponentCatalogue*, exported_component_catalogue, nullptr, );
     }
     active_component_count++;
 }
 void LibraryInfo::decrement_component_count(){
     active_component_count--;
     if(active_component_count == 0) {
-        if(has_module_class) (*uninstall_module)(module_instance);
+        destroy_module();
     }
 }
 std::pair<Component*, std::function<void(Component* arg)>> LibraryInfo::find_component(const ComponentName& component_name) {
-    for(auto c : *exported_component_catalogue) {
-        if(exported_module_name == component_name[0] &&  c.name == component_name[1]) {
+    for(auto c = component_catalogue.begin(); c != component_catalogue.end();++c) {
+        if(module_name == component_name[0] && c->name == component_name[1]) {
             increment_component_count();
-            auto param = ComponentConstructionParam(std::string(exported_module_name), c, std::bind(&LibraryInfo::decrement_component_count, this));
-            auto component = c.alloc(&param);
-            return std::pair(component, c.free);
+            ComponentInfo& component_info = (*exported_component_catalogue)[std::distance(component_catalogue.begin(), c)];
+            auto           param          = ComponentConstructionParam(module_name, component_info, std::bind(&LibraryInfo::decrement_component_count, this));
+            auto           component      = component_info.alloc(&param);
+            return std::pair(component, component_info.free);
         }
     }
     return std::pair(nullptr, nullptr);
 }
-LibraryInfo::LibraryInfo(const char* path) {
-    DO_STATEMENT(dlopen(path, RTLD_LAZY), library_handle = var,
-                 DEBUG_OUT("cannot open library file(dlopen failed: " << dlerror() << ")");
-                 throw;);
-    {
-        FIND_SYM("install_module", InstallModuleFunc, install_module, nullptr, has_module_class = false);
-        FIND_SYM("uninstall_module", UninstallModuleFunc, uninstall_module, nullptr, has_module_class = false);
+void LibraryInfo::check_and_unload_library() {
+    if(library_handle != nullptr && active_component_count == 0) {
+        unload_library();
     }
-    do{
-        FIND_SYM("module_name", const char*, exported_module_name, "cannot find module_name", break);
+}
+LibraryInfo::LibraryInfo(const char* path):library_path(path) {
+    load_library();
+    bool error = true;
+    do {
+        FIND_SYM("module_name", const char*, module_name, "cannot find module_name", break);
+        /* create simple catalogue */
+        ComponentCatalogue* exported_component_catalogue;
         FIND_SYM("component_catalogue", ComponentCatalogue*, exported_component_catalogue, "cannot find component_catalogue", break);
-        return;
+        for(auto& c : *exported_component_catalogue){
+            component_catalogue.emplace_back(c.name, c.type);
+        }
+        error = false;
     } while(0);
-    dlclose(library_handle);
-    throw;
+    unload_library();
+    if(!error)
+        return;
+    else
+        throw;
 }
 LibraryInfo::~LibraryInfo() {
-    if(active_component_count != 0){;
-        DEBUG_OUT("closing module \"" << exported_module_name << "\" which has active component.");
-    }
-    dlclose(library_handle);
+    if(library_handle != nullptr) unload_library();
 }
 
 namespace{
@@ -118,8 +159,13 @@ void free_modules(){
     }
     libraries.clear();
 }
+void free_inactive_modules(){
+    for(auto& lib : libraries) {
+        lib->check_and_unload_library();
+    }
+}
 Component* search_component(ComponentName name) {
-    for(auto lib : libraries) {
+    for(auto& lib : libraries) {
         if(auto c = lib->find_component(name); c.first != nullptr) {
             active_components.emplace_back(c);
             return c.first;
@@ -132,6 +178,7 @@ bool close_component(boxten::Component* component){
         if(c->first != component) continue;
         c->second(c->first);
         active_components.erase(c);
+        free_inactive_modules();
         return true;
     }
     return false;

@@ -99,6 +99,7 @@ u64 proc_get_playback_pos() {
         u64 current = p.playing_frame_pos[0] + dur * rate;
         u64 delay   = stream_output->output_delay();
         fallback    = current < delay ? 0 : current - delay;
+        DEBUG_OUT(fallback);
         return fallback;
     }
     // Sometimes reach here because of timer error.
