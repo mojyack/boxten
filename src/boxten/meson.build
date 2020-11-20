@@ -1,5 +1,5 @@
 thread_dep = dependency('threads')
-boxten_dep = dependency('libboxten')
+boxten_dep = declare_dependency(link_with: libboxten, include_directories: libboxten_include_dir)
 
 files = [
     'main.cpp',
