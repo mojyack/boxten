@@ -63,6 +63,4 @@ PCMPacket StreamOutput::get_buffer_pcm_packet(n_frames frame) {
 PCMFormat StreamOutput::get_buffer_pcm_format(){
     return boxten::get_buffer_pcm_format();
 }
-Module::Module(const char* module_name) : Configurator(module_name), module_name(module_name) {}
-Module::~Module(){}
 } // namespace boxten

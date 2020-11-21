@@ -19,10 +19,8 @@ if(auto var = fnc; var != nullptr) {           \
 DO_STATEMENT(reinterpret_cast<type>(dlsym(library_handle, sym_name)), found = var, if(error_message != nullptr) DEBUG_OUT(error_message << "(dlsym failed: " << dlerror() << ")"); on_fail)
 
 namespace boxten {
-typedef Module* (*InstallModuleFunc)(void);
-typedef void (*UninstallModuleFunc)(Module*);
-
 namespace {
+typedef std::pair<Component*, std::function<void(Component* arg)>> SeachResult;
 class LibraryInfo {
   private:
     std::filesystem::path library_path;
@@ -33,31 +31,27 @@ class LibraryInfo {
         COMPONENT_TYPE type;
     };
     std::vector<SimpleComponentCatalogue> component_catalogue;
-    
-    bool                                  has_module_class = true;
-    Module*                               module_instance;
+    ComponentCatalogue*                   exported_component_catalogue;
 
-    InstallModuleFunc   install_module;
-    UninstallModuleFunc uninstall_module;
-    ComponentCatalogue* exported_component_catalogue;
+    std::vector<Component*> module_components;
 
     u64 active_component_count = 0;
 
     void load_library();
     void unload_library();
-    void create_module();
-    void destroy_module();
     void increment_component_count();
     void decrement_component_count();
+    SeachResult construct_component(u64 index);
 
   public:
-    std::pair<Component*, std::function<void(Component* arg)>> find_component(const ComponentName& component_name);
-    void                                                       check_and_unload_library();
+    SeachResult              find_component(const ComponentName& component_name);
+    std::vector<SeachResult> find_component(const COMPONENT_TYPE type);
+    void                     check_and_unload_library();
     LibraryInfo(const char* path);
     ~LibraryInfo();
 };
-std::list<LibraryInfo*>                                                 libraries;
-std::vector<std::pair<Component*, std::function<void(Component* arg)>>> active_components;
+std::list<LibraryInfo*>  libraries;
+std::vector<SeachResult> active_components;
 } // namespace
 
 void LibraryInfo::load_library(){
@@ -72,19 +66,9 @@ void LibraryInfo::unload_library(){
     dlclose(library_handle);
     library_handle = nullptr;
 }
-void LibraryInfo::create_module() {
-    has_module_class = true;
-    FIND_SYM("install_module", InstallModuleFunc, install_module, nullptr, has_module_class = false);
-    FIND_SYM("uninstall_module", UninstallModuleFunc, uninstall_module, nullptr, has_module_class = false);
-    if(has_module_class) module_instance = (*install_module)();
-}
-void LibraryInfo::destroy_module() {
-    if(has_module_class) (*uninstall_module)(module_instance);
-}
 void LibraryInfo::increment_component_count(){
-    if(active_component_count == 0) {
+    if(active_component_count == 0 && library_handle == nullptr) {
         load_library();
-        create_module();
         FIND_SYM("component_catalogue", ComponentCatalogue*, exported_component_catalogue, nullptr, );
     }
     active_component_count++;
@@ -92,20 +76,32 @@ void LibraryInfo::increment_component_count(){
 void LibraryInfo::decrement_component_count(){
     active_component_count--;
     if(active_component_count == 0) {
-        destroy_module();
+        // unload_library(); // causes crash
     }
 }
-std::pair<Component*, std::function<void(Component* arg)>> LibraryInfo::find_component(const ComponentName& component_name) {
+SeachResult LibraryInfo::construct_component(u64 index) {
+    increment_component_count();
+    ComponentInfo& component_info = (*exported_component_catalogue)[index];
+    auto param     = ComponentConstructionParam(module_name, component_info, std::bind(&LibraryInfo::decrement_component_count, this));
+    auto component = component_info.alloc(&param);
+    return std::pair(component, component_info.free);
+}
+SeachResult LibraryInfo::find_component(const ComponentName& component_name) {
     for(auto c = component_catalogue.begin(); c != component_catalogue.end();++c) {
         if(module_name == component_name[0] && c->name == component_name[1]) {
-            increment_component_count();
-            ComponentInfo& component_info = (*exported_component_catalogue)[std::distance(component_catalogue.begin(), c)];
-            auto           param          = ComponentConstructionParam(module_name, component_info, std::bind(&LibraryInfo::decrement_component_count, this));
-            auto           component      = component_info.alloc(&param);
-            return std::pair(component, component_info.free);
+            return construct_component(std::distance(component_catalogue.begin(), c));
         }
     }
     return std::pair(nullptr, nullptr);
+}
+std::vector<SeachResult> LibraryInfo::find_component(const COMPONENT_TYPE type) {
+    std::vector<SeachResult> results;
+    for(auto c = component_catalogue.begin(); c != component_catalogue.end(); ++c) {
+        if(c->type == type){
+            results.emplace_back(construct_component(std::distance(component_catalogue.begin(), c)));
+        }
+    }
+    return results;
 }
 void LibraryInfo::check_and_unload_library() {
     if(library_handle != nullptr && active_component_count == 0) {
@@ -118,20 +114,29 @@ LibraryInfo::LibraryInfo(const char* path):library_path(path) {
     do {
         FIND_SYM("module_name", const char*, module_name, "cannot find module_name", break);
         /* create simple catalogue */
-        ComponentCatalogue* exported_component_catalogue;
         FIND_SYM("component_catalogue", ComponentCatalogue*, exported_component_catalogue, "cannot find component_catalogue", break);
         for(auto& c : *exported_component_catalogue){
             component_catalogue.emplace_back(c.name, c.type);
         }
         error = false;
     } while(0);
-    unload_library();
+
+    /* if plugin has module component, load it. */
+    for(auto& m : find_component(COMPONENT_TYPE::MODULE)) {
+        module_components.emplace_back(m.first);
+        active_components.emplace_back(m);
+    }
+
+    check_and_unload_library();
     if(!error)
         return;
     else
         throw;
 }
 LibraryInfo::~LibraryInfo() {
+    for(auto m:module_components){
+        close_component(m);
+    }
     if(library_handle != nullptr) unload_library();
 }
 
@@ -142,12 +147,13 @@ u64 scan_modules(std::vector<std::filesystem::path> lib_dirs) {
             try {
                 lib = new LibraryInfo(m.path().string().data());
             } catch(...) {
-                DEBUG_OUT("an essention function not found while.");
+                DEBUG_OUT("an essention function not found in " << m.path() << ".");
                 continue;
             }
             libraries.emplace_back(lib);
         }
     }
+
     return libraries.size();
 }
 void free_modules(){

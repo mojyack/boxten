@@ -8,6 +8,7 @@
 
 namespace boxten {
 enum COMPONENT_TYPE {
+    MODULE,
     SOUND_PROCESSOR,
     STREAM_INPUT,
     STREAM_OUTPUT,
@@ -28,6 +29,7 @@ class Configurator {
 
     Configurator(const char* domain);
 };
+
 class Component : public Configurator {
   private:
     std::filesystem::path     resource_dir;
@@ -52,6 +54,12 @@ class SoundProcessor : public Component {
   public:
     SoundProcessor(void* param) : Component(param) {}
     virtual ~SoundProcessor(){}
+};
+
+class Module : public Component{
+  public:
+    Module(void* param) : Component(param) {}
+    virtual ~Module() {}
 };
 
 class StreamInput : public Component {
@@ -100,21 +108,6 @@ typedef std::vector<ComponentInfo> ComponentCatalogue;
     extern "C" const char                       module_name[]       = MODULE_NAME;   \
     extern "C" const boxten::ComponentCatalogue component_catalogue = {__VA_ARGS__}; \
 
-#define BOXTEN_MODULE_CLASS(ON_LOAD_FUNC, ON_UNLOAD_FUNC)              \
-    class BoxtenModule : public boxten::Module {                       \
-      public:                                                          \
-        BoxtenModule() : boxten::Module(MODULE_NAME) { ON_LOAD_FUNC; } \
-        ~BoxtenModule() { ON_UNLOAD_FUNC; }                            \
-    };                                                                 \
-    extern "C" {                                                       \
-    boxten::Module* install_module() {                                 \
-        return new BoxtenModule;                                       \
-    }                                                                  \
-    void uninstall_module(boxten::Module* module) {                    \
-        delete module;                                                 \
-    }                                                                  \
-    }
-
 #define CATALOGUE_CALLBACK(component_name)         \
     [](void* arg) -> boxten::Component* {          \
         return new component_name(arg);            \
@@ -122,12 +115,4 @@ typedef std::vector<ComponentInfo> ComponentCatalogue;
     [](boxten::Component* arg) {                   \
         delete dynamic_cast<component_name*>(arg); \
     }
-
-class Module : public Configurator {
-  public:
-    const char*        module_name;
-    ComponentCatalogue component_catalogue;
-    Module(const char* module_name);
-    virtual ~Module();
-};
 } // namespace boxten
