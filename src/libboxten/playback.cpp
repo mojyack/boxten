@@ -101,7 +101,7 @@ u64 proc_get_playback_pos() {
         u64 current = p.playing_frame_pos[0] + dur * rate;
         u64 delay   = stream_output->output_delay();
         fallback    = current < delay ? 0 : current - delay;
-        DEBUG_OUT(fallback);
+        // DEBUG_OUT(fallback);
         return fallback;
     }
     // Sometimes reach here because of timer error.
@@ -168,29 +168,33 @@ void proc_resume_playback() {
 void proc_seek_rate_abs(f64 rate) {
     if(rate < 0.0) return;
     if(rate > 1.0) return;
-    LOCK_GUARD_D(filled_frame_pos.lock, lock);
-    LOCK_GUARD_D(playing_playlist->mutex(), plock);
+    {
+        LOCK_GUARD_D(filled_frame_pos.lock, lock);
+        LOCK_GUARD_D(playing_playlist->mutex(), plock);
 
-    if(filled_frame_pos->song >= playing_playlist->size()) return;
-    auto& audio_file = *(*playing_playlist)[filled_frame_pos->song];
-    filled_frame_pos->frame = audio_file.get_total_frames() * rate;
+        if(filled_frame_pos->song >= playing_playlist->size()) return;
+        auto& audio_file        = *(*playing_playlist)[filled_frame_pos->song];
+        filled_frame_pos->frame = audio_file.get_total_frames() * rate;
+    }
     buffer.clear();
 }
 void proc_seek_rate_rel(f64 rate) {
     if(rate < -1.0) return;
     if(rate > 1.0) return;
-    LOCK_GUARD_D(filled_frame_pos.lock, lock);
-    LOCK_GUARD_D(playing_playlist->mutex(), plock);
+    {
+        LOCK_GUARD_D(filled_frame_pos.lock, lock);
+        LOCK_GUARD_D(playing_playlist->mutex(), plock);
 
-    if(filled_frame_pos->song >= playing_playlist->size()) return;
-    auto& audio_file = *(*playing_playlist)[filled_frame_pos->song];
-    filled_frame_pos->frame *= rate;
-    if(filled_frame_pos->frame + 1 >= audio_file.get_total_frames()) {
-        if(filled_frame_pos->song == playing_playlist->size()) {
-            end_of_playlist = true;
-        } else {
-            filled_frame_pos->song++;
-            filled_frame_pos->frame = 0;
+        if(filled_frame_pos->song >= playing_playlist->size()) return;
+        auto& audio_file = *(*playing_playlist)[filled_frame_pos->song];
+        filled_frame_pos->frame *= rate;
+        if(filled_frame_pos->frame + 1 >= audio_file.get_total_frames()) {
+            if(filled_frame_pos->song == playing_playlist->size()) {
+                end_of_playlist = true;
+            } else {
+                filled_frame_pos->song++;
+                filled_frame_pos->frame = 0;
+            }
         }
     }
     buffer.clear();
