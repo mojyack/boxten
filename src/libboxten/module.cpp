@@ -56,6 +56,8 @@ class LibraryInfo {
     LibraryInfo(const char* path);
     ~LibraryInfo();
 };
+std::list<LibraryInfo*>                                                 libraries;
+std::vector<std::pair<Component*, std::function<void(Component* arg)>>> active_components;
 } // namespace
 
 void LibraryInfo::load_library(){
@@ -132,11 +134,6 @@ LibraryInfo::LibraryInfo(const char* path):library_path(path) {
 LibraryInfo::~LibraryInfo() {
     if(library_handle != nullptr) unload_library();
 }
-
-namespace{
-std::list<LibraryInfo*>                                                 libraries;
-std::vector<std::pair<Component*, std::function<void(Component* arg)>>> active_components;
-} // namespace
 
 u64 scan_modules(std::vector<std::filesystem::path> lib_dirs) {
     for(auto module_dir : lib_dirs) {

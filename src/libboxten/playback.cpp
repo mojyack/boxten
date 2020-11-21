@@ -15,39 +15,39 @@ StreamOutput* stream_output    = nullptr;
 Playlist*     playing_playlist = nullptr;
 
 Buffer     buffer;
-struct {
+struct FilledFramePos {
     u64 song;
     u64 frame;
-} filled_frame_pos;
-std::mutex filled_frame_pos_lock;
-bool       end_of_playlist     = false; // If true, all of playlist were sent to buffer already.
-bool       finish_fill_buffer_thread = false;
+};
+SafeVar<FilledFramePos> filled_frame_pos;
+bool                    end_of_playlist = false; // If true, all of playlist were sent to buffer already.
+bool                    finish_fill_buffer_thread = false;
 void       fill_buffer() {
     while(1) {
-        std::unique_lock<std::mutex> lock(buffer.need_fill_buffer_lock);
+        std::unique_lock<std::mutex> lock(buffer.need_fill_buffer.lock);
         buffer.continue_fill_buffer.wait(lock, [&] {
             return buffer.need_fill_buffer || finish_fill_buffer_thread;
         });
         if(finish_fill_buffer_thread) break;
         while(buffer.free_frame() >= PCMPACKET_PERIOD && !end_of_playlist) {
-            LOCK_GUARD_D(filled_frame_pos_lock, lock);
+            LOCK_GUARD_D(filled_frame_pos.lock, lock);
             LOCK_GUARD_D(playing_playlist->mutex(), plock);
-            if(filled_frame_pos.song >= playing_playlist->size()){
+            if(filled_frame_pos->song >= playing_playlist->size()){
                 end_of_playlist = true;
                 continue;
             }
-            auto& audio_file = *(*playing_playlist)[filled_frame_pos.song];
-            n_frames frames_left = audio_file.get_total_frames() - (filled_frame_pos.frame + 1);
+            auto& audio_file = *(*playing_playlist)[filled_frame_pos->song];
+            n_frames frames_left = audio_file.get_total_frames() - (filled_frame_pos->frame + 1);
             n_frames to_read     = frames_left >= PCMPACKET_PERIOD ? PCMPACKET_PERIOD : frames_left;
-            auto     packet      = stream_input->read_frames(audio_file, filled_frame_pos.frame, to_read);
-            filled_frame_pos.frame += packet.get_frames();
-            if(filled_frame_pos.frame + 1 >= audio_file.get_total_frames()) {
-                if(filled_frame_pos.song + 1 == playing_playlist->size()){
+            auto     packet      = stream_input->read_frames(audio_file, filled_frame_pos->frame, to_read);
+            filled_frame_pos->frame += packet.get_frames();
+            if(filled_frame_pos->frame + 1 >= audio_file.get_total_frames()) {
+                if(filled_frame_pos->song + 1 == playing_playlist->size()){
                     end_of_playlist = true;
                     continue;
                 } else {
-                    filled_frame_pos.song++;
-                    filled_frame_pos.frame = 0;
+                    filled_frame_pos->song++;
+                    filled_frame_pos->frame = 0;
                     // Considering the delay caused by the buffer, SONG_CHANGE hook is not invoked here.
                 }
             }
@@ -62,13 +62,15 @@ void       buffer_underrun_handler() {
     if(!get_if_playlist_left()) stop_playback();
 }
 
-struct PacketFormat {
-    u64 playing_frame_pos[2];
-    u32 sampling_rate;
+struct PlayingPacket{
+    struct PacketFormat {
+        u64 playing_frame_pos[2];
+        u32 sampling_rate;
+    };
+    std::vector<PacketFormat>             packet_formats;
+    std::chrono::system_clock::time_point update_time;
 };
-std::vector<PacketFormat>             playing_packet;
-std::chrono::system_clock::time_point playing_packet_updated_time;
-std::mutex                            playing_packet_lock;
+SafeVar<PlayingPacket>                playing_packet;
 u64                                   paused_frame_pos = 0;
 
 PLAYBACK_STATE playback_state = PLAYBACK_STATE::STOPPED;
@@ -86,10 +88,10 @@ u64 proc_get_playback_pos() {
     static u64 fallback = 0;
     if(playback_state == PLAYBACK_STATE::STOPPED) return 0;
     if(playback_state == PLAYBACK_STATE::PAUSED) return paused_frame_pos;
-    LOCK_GUARD_D(playing_packet_lock, pplock);
+    LOCK_GUARD_D(playing_packet.lock, pplock);
     auto now     = std::chrono::system_clock::now();
-    for(auto& p : playing_packet) {
-        auto     elapsed     = std::chrono::duration_cast<std::chrono::milliseconds>(now - playing_packet_updated_time).count();
+    for(auto& p : playing_packet->packet_formats) {
+        auto     elapsed     = std::chrono::duration_cast<std::chrono::milliseconds>(now - playing_packet->update_time).count();
         n_frames dur         = p.playing_frame_pos[1] - p.playing_frame_pos[0];
         u64      miliseconds = 1000.0 * dur / p.sampling_rate;
         if(static_cast<u64>(elapsed) > miliseconds) {
@@ -116,9 +118,9 @@ void proc_start_playback() {
 
     if(LOCK_GUARD_D(playing_playlist->mutex(), plock); playing_playlist->empty()) return;
 
-    LOCK_GUARD_D(filled_frame_pos_lock, lock);
-    filled_frame_pos.song = 0;
-    filled_frame_pos.frame = 0;
+    LOCK_GUARD_D(filled_frame_pos.lock, lock);
+    filled_frame_pos->song = 0;
+    filled_frame_pos->frame = 0;
 
     end_of_playlist = false;
     buffer.set_buffer_underrun_handler(buffer_underrun_handler);
@@ -156,8 +158,8 @@ void proc_resume_playback() {
     if(playback_state != PLAYBACK_STATE::PAUSED) return;
 
     {
-        LOCK_GUARD_D(playing_packet_lock, lock);
-        playing_packet_updated_time = std::chrono::system_clock::now();
+        LOCK_GUARD_D(playing_packet.lock, lock);
+        playing_packet->update_time = std::chrono::system_clock::now();
     }
     stream_output->resume_playback();
     playback_state = PLAYBACK_STATE::PLAYING;
@@ -166,29 +168,29 @@ void proc_resume_playback() {
 void proc_seek_rate_abs(f64 rate) {
     if(rate < 0.0) return;
     if(rate > 1.0) return;
-    LOCK_GUARD_D(filled_frame_pos_lock, lock);
+    LOCK_GUARD_D(filled_frame_pos.lock, lock);
     LOCK_GUARD_D(playing_playlist->mutex(), plock);
 
-    if(filled_frame_pos.song >= playing_playlist->size()) return;
-    auto& audio_file = *(*playing_playlist)[filled_frame_pos.song];
-    filled_frame_pos.frame = audio_file.get_total_frames() * rate;
+    if(filled_frame_pos->song >= playing_playlist->size()) return;
+    auto& audio_file = *(*playing_playlist)[filled_frame_pos->song];
+    filled_frame_pos->frame = audio_file.get_total_frames() * rate;
     buffer.clear();
 }
 void proc_seek_rate_rel(f64 rate) {
     if(rate < -1.0) return;
     if(rate > 1.0) return;
-    LOCK_GUARD_D(filled_frame_pos_lock, lock);
+    LOCK_GUARD_D(filled_frame_pos.lock, lock);
     LOCK_GUARD_D(playing_playlist->mutex(), plock);
 
-    if(filled_frame_pos.song >= playing_playlist->size()) return;
-    auto& audio_file = *(*playing_playlist)[filled_frame_pos.song];
-    filled_frame_pos.frame *= rate;
-    if(filled_frame_pos.frame + 1 >= audio_file.get_total_frames()) {
-        if(filled_frame_pos.song == playing_playlist->size()) {
+    if(filled_frame_pos->song >= playing_playlist->size()) return;
+    auto& audio_file = *(*playing_playlist)[filled_frame_pos->song];
+    filled_frame_pos->frame *= rate;
+    if(filled_frame_pos->frame + 1 >= audio_file.get_total_frames()) {
+        if(filled_frame_pos->song == playing_playlist->size()) {
             end_of_playlist = true;
         } else {
-            filled_frame_pos.song++;
-            filled_frame_pos.frame = 0;
+            filled_frame_pos->song++;
+            filled_frame_pos->frame = 0;
         }
     }
     buffer.clear();
@@ -266,11 +268,11 @@ PLAYBACK_STATE get_playback_state(){
 }
 n_frames get_playing_song_length() {
     LOCK_GUARD_D(playback_thread.wait_empty(), qlock);
-    LOCK_GUARD_D(filled_frame_pos_lock, flock);
+    LOCK_GUARD_D(filled_frame_pos.lock, flock);
     LOCK_GUARD_D(playing_playlist->mutex(), plock);
 
-    if(filled_frame_pos.song >= playing_playlist->size()) return 0;
-    auto& audio_file = *(*playing_playlist)[filled_frame_pos.song];
+    if(filled_frame_pos->song >= playing_playlist->size()) return 0;
+    auto& audio_file = *(*playing_playlist)[filled_frame_pos->song];
     return audio_file.get_total_frames();
 }
 bool get_if_playlist_left() {
@@ -302,27 +304,27 @@ void unset_playlist() {
 void playing_playlist_insert(u64 pos, AudioFile* audio_file) {
     // playing_playlist->mutex() must be locked
     // Because this function only be called from Playlist::proc_insert()
-    LOCK_GUARD_D(filled_frame_pos_lock, lock);
+    LOCK_GUARD_D(filled_frame_pos.lock, lock);
 
-    if(pos > filled_frame_pos.song) {
+    if(pos > filled_frame_pos->song) {
         /* New music will be inserted after playing music. Nothing to do. */
     } else {
         /* correction filled_frame_pos */
-        filled_frame_pos.song++;
+        filled_frame_pos->song++;
     }
     return;
 }
 void playing_playlist_erase(u64 pos) {
     // playing_playlist->mutex() must be locked
     // Because this function only be called from Playlist::erase()
-    LOCK_GUARD_D(filled_frame_pos_lock, lock);
+    LOCK_GUARD_D(filled_frame_pos.lock, lock);
 
-    if(pos > filled_frame_pos.song) {
+    if(pos > filled_frame_pos->song) {
         /* The music is after playing music. Nothing to do. */
-    } else if(pos < filled_frame_pos.song) {
-        filled_frame_pos.song--;
+    } else if(pos < filled_frame_pos->song) {
+        filled_frame_pos->song--;
     } else { // pos == playing_music_num
-        filled_frame_pos.frame = 0;
+        filled_frame_pos->frame = 0;
     }
     if(playing_playlist->empty()) stop_playback();
     return;
@@ -334,22 +336,22 @@ n_frames get_buffer_filled_frames() {
 PCMPacket get_buffer_pcm_packet(n_frames frames) {
     auto packet = buffer.cut(frames);
     if(!packet.empty()) {
-        LOCK_GUARD_D(playing_packet_lock, lock);
-        playing_packet.clear();
+        LOCK_GUARD_D(playing_packet.lock, lock);
+        playing_packet->packet_formats.clear();
         for(auto& p : packet) {
-            PacketFormat format;
+            PlayingPacket::PacketFormat format;
             format.playing_frame_pos[0] = p.original_frame_pos[0];
             format.playing_frame_pos[1] = p.original_frame_pos[1];
             format.sampling_rate        = p.format.sampling_rate;
-            playing_packet.emplace_back(format);
+            playing_packet->packet_formats.emplace_back(format);
         }
-        for(auto i = playing_packet.begin() + 1; i != playing_packet.end();++i){
+        for(auto i = playing_packet->packet_formats.begin() + 1; i != playing_packet->packet_formats.end(); ++i) {
             if(i->playing_frame_pos[0] < (i - 1)->playing_frame_pos[1]){
                 invoke_eventhook(EVENT::SONG_CHANGE);
                 break;
             }
         }
-        playing_packet_updated_time = std::chrono::system_clock::now();
+        playing_packet->update_time = std::chrono::system_clock::now();
     }
     return packet;
 }

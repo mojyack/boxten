@@ -10,15 +10,13 @@
 namespace boxten {
 class Buffer {
   private:
-    PCMPacket data;
-    std::mutex data_lock;
+    SafeVar<PCMPacket>        data;
     std::function<void(void)> buffer_underrun_handler;
 
     void notify_need_fill_buffer();
 
   public:
-    bool need_fill_buffer = true;
-    std::mutex need_fill_buffer_lock;
+    SafeVar<bool>           need_fill_buffer = true;
     std::condition_variable continue_fill_buffer;
 
     void clear();

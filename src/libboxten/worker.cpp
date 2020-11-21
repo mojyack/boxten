@@ -10,14 +10,12 @@ namespace boxten{
 namespace {
 std::thread master_thread;
 bool exit_master_thread;
-std::list<boxten::WorkerThread> workers;
-std::mutex workers_lock;
+SafeVar<std::list<boxten::WorkerThread>> workers;
 
-bool workers_changed = false;
-std::mutex workers_changed_lock;
+SafeVar<bool>           workers_changed = false;
 std::condition_variable refresh_workers;
 void notify_workers_changed(){
-    std::lock_guard<std::mutex> lock(workers_changed_lock);
+    std::lock_guard<std::mutex> lock(workers_changed.lock);
     workers_changed = true;
     refresh_workers.notify_one();
 }
@@ -29,7 +27,7 @@ void WorkerThread::start() {
         function();
         WORKER_FINISH;
         {
-            std::lock_guard<std::mutex> lock(state_lock);
+            std::lock_guard<std::mutex> lock(state.lock);
             state = STATE::FINISHED;
             work_finished.notify_one();
         }
@@ -39,7 +37,7 @@ void WorkerThread::start() {
     thread = std::thread(new_work);
 }
 void WorkerThread::join(){
-    std::unique_lock<std::mutex> lock(state_lock);
+    std::unique_lock<std::mutex> lock(state.lock);
     work_finished.wait(lock, [&]() {
         return state == STATE::FINISHED;
     });
@@ -47,7 +45,7 @@ void WorkerThread::join(){
 }
 
 WorkerThread::STATE WorkerThread::get_state() {
-    std::lock_guard<std::mutex> lock(state_lock);
+    std::lock_guard<std::mutex> lock(state.lock);
     return state;
 }
 WorkerThread::WorkerThread(std::function<void(void)> function)
@@ -61,20 +59,20 @@ void start_master_thread(){
     master_thread      = std::thread([&]() {
         while(!exit_master_thread){
             {
-                std::unique_lock<std::mutex> lock(workers_changed_lock);
+                std::unique_lock<std::mutex> lock(workers_changed.lock);
                 refresh_workers.wait(lock, [&]() { return workers_changed || exit_master_thread; });
                 if(exit_master_thread) break;
                 workers_changed = false;
             }
 
-            std::lock_guard<std::mutex> lock(workers_lock);
-            for(auto w = workers.begin(); w != workers.end();) {
+            std::lock_guard<std::mutex> lock(workers.lock);
+            for(auto w = workers->begin(); w != workers->end();) {
                 auto state = w->get_state();
                 if(state == WorkerThread::STATE::PREPARED){
                     w->start();
                 } else if(state == WorkerThread::STATE::JOINED){
                     
-                    w = workers.erase(w);
+                    w = workers->erase(w);
                 }
                 if(state != WorkerThread::STATE::JOINED) w++;
             }
@@ -87,10 +85,10 @@ std::thread& finish_master_thread() {
     return master_thread;
 }
 WorkerThread* queue_worker_thread(std::function<void(void)> function){
-    std::lock_guard<std::mutex> lock(workers_lock);
-    workers.emplace_back(function);
+    std::lock_guard<std::mutex> lock(workers.lock);
+    workers->emplace_back(function);
     notify_workers_changed();
-    return &workers.back();
+    return &workers->back();
 }
 
 void Worker::join(){

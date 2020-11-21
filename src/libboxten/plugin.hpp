@@ -123,7 +123,7 @@ typedef std::vector<ComponentInfo> ComponentCatalogue;
         delete dynamic_cast<component_name*>(arg); \
     }
 
-    class Module : public Configurator {
+class Module : public Configurator {
   public:
     const char*        module_name;
     ComponentCatalogue component_catalogue;

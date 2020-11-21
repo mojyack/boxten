@@ -8,10 +8,8 @@ class Playlist {
     typedef std::vector<AudioFile*>::iterator iterator;
 
   private:
-    std::string             name;
-    std::mutex              name_lock;
-    std::vector<AudioFile*> playlist_member;
-    std::mutex              playlist_member_lock;
+    SafeVar<std::string>             name;
+    SafeVar<std::vector<AudioFile*>> playlist_member;
 
     void proc_insert(std::filesystem::path path, iterator pos);
 

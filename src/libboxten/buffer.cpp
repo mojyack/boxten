@@ -5,24 +5,23 @@ namespace boxten{
 constexpr u64 BUFFER_LIMIT = PCMPACKET_PERIOD * 32; // frames
 
 void Buffer::notify_need_fill_buffer(){
-    std::lock_guard<std::mutex> lock(need_fill_buffer_lock);
+    std::lock_guard<std::mutex> lock(need_fill_buffer.lock);
     need_fill_buffer = true;
     continue_fill_buffer.notify_one();
 }
 void Buffer::clear(){
     {
-        std::lock_guard<std::mutex> lock(data_lock);
-        data.clear();
+        std::lock_guard<std::mutex> lock(data.lock);
+        data->clear();
     }
     notify_need_fill_buffer();
 }
 n_frames Buffer::filled_frame() {
     n_frames filled = 0;
-    data_lock.lock();
-    for(auto& b : data) {
+    std::lock_guard<std::mutex> lock(data.lock);
+    for(auto& b : PCMPacket(data)) {
         filled += b.get_frames();
     }
-    data_lock.unlock();
     return filled;
 }
 n_frames Buffer::free_frame() {
@@ -30,10 +29,10 @@ n_frames Buffer::free_frame() {
     return BUFFER_LIMIT < filled ? 0 : BUFFER_LIMIT - filled;
 }
 void Buffer::append(PCMPacketUnit& packet) {
-    std::lock_guard<std::mutex> lock(data_lock);
-    data.emplace_back();
+    std::lock_guard<std::mutex> lock(data.lock);
+    data->emplace_back();
     {
-        auto& buff  = data.back();
+        auto& buff  = data->back();
         buff.format = packet.format;
         buff.original_frame_pos[0] = packet.original_frame_pos[0];
         buff.original_frame_pos[1] = packet.original_frame_pos[1];
@@ -57,8 +56,8 @@ PCMPacket Buffer::cut(n_frames frame) {
     auto to_cut = frame;
     PCMPacket result;
     {
-        std::lock_guard<std::mutex> lock(data_lock);
-        for(auto i = data.begin(); i != data.end();) {
+        std::lock_guard<std::mutex> lock(data.lock);
+        for(auto i = data->begin(); i != data->end();) {
             result.emplace_back();
             auto& new_packet  = result.back();
             new_packet.format = (*i).format;
@@ -77,7 +76,7 @@ PCMPacket Buffer::cut(n_frames frame) {
                 new_packet.pcm = std::move((*i).pcm);
                 new_packet.original_frame_pos[0] = (*i).original_frame_pos[0];
                 new_packet.original_frame_pos[1] = (*i).original_frame_pos[1];
-                i                                = data.erase(i);
+                i                                = data->erase(i);
                 to_cut -= in_vector;
             }
             if(to_cut == 0) break;
@@ -87,13 +86,13 @@ PCMPacket Buffer::cut(n_frames frame) {
     return result;
 }
 PCMFormat Buffer::get_next_format() {
-    std::lock_guard<std::mutex> lock(data_lock);
-    if(data.empty()){
+    std::lock_guard<std::mutex> lock(data.lock);
+    if(data->empty()){
         PCMFormat result;
         result.sample_type = FORMAT_SAMPLE_TYPE::UNKNOWN;
         return result;
     }
-    return data[0].format;
+    return data->operator[](0).format;
 }
 void Buffer::set_buffer_underrun_handler(std::function<void(void)> handler){
     buffer_underrun_handler = handler;

@@ -5,6 +5,8 @@
 #include <mutex>
 #include <thread>
 
+#include "type.hpp"
+
 namespace boxten {
 class WorkerThread {
   public:
@@ -16,8 +18,8 @@ class WorkerThread {
     };
 
   private:
-    STATE state = STATE::PREPARED;
-    std::mutex state_lock;
+    SafeVar<STATE> state = STATE::PREPARED;
+
     std::condition_variable work_finished;
     std::thread thread;
 

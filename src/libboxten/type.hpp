@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <map>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -95,5 +96,28 @@ struct LayoutData {
     } type;
     boxten::ComponentName   name;
     std::vector<LayoutData> children;
+};
+template <typename T>
+struct SafeVar{
+    T data;
+    std::mutex lock;
+    operator std::mutex(){
+        return lock;
+    }
+    operator T&(){
+        return data;
+    }
+    T operator=(const T d){
+        data = d;
+        return data;
+    }
+    T* operator->(){
+        return &data;
+    }
+    SafeVar(){}
+    SafeVar(T data) : data(data) {}
+    SafeVar(const SafeVar<T>& src){
+        data = src.data;
+    }
 };
 } // namespace boxten

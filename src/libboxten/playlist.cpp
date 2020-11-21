@@ -48,82 +48,80 @@ class AudioFileManager{
         DEBUG_OUT("audio file pointer not found.");
     }
 };
-AudioFileManager audio_files;
-std::mutex       audio_files_lock;
+SafeVar<AudioFileManager> audio_files;
 
-Playlist*  playing_playlist = nullptr;
-std::mutex playing_playlist_lock;
+SafeVar<Playlist*> playing_playlist;
 } // namespace
 
 void Playlist::set_name(const char* new_name) {
-    LOCK_GUARD_D(name_lock, lock);
+    LOCK_GUARD_D(name.lock, lock);
     name = new_name;
 }
 std::string Playlist::get_name() {
-    LOCK_GUARD_D(name_lock, lock);
+    LOCK_GUARD_D(name.lock, lock);
     return name;
 }
 void Playlist::proc_insert(std::filesystem::path path, iterator pos){
-    LOCK_GUARD_D(audio_files_lock, aflock);
+    LOCK_GUARD_D(audio_files.lock, aflock);
 
-    auto audio_file_ref = audio_files.get_audio_ref(path);
-    LOCK_GUARD_D(playing_playlist_lock, pplock);
+    auto audio_file_ref = audio_files->get_audio_ref(path);
+    LOCK_GUARD_D(playing_playlist.lock, pplock);
     if(playing_playlist == this) {
         playing_playlist_insert(std::distance(begin(), pos), audio_file_ref);
     }
-    playlist_member.emplace_back(audio_file_ref);
+    playlist_member->emplace_back(audio_file_ref);
 }
 void Playlist::activate() {
     boxten::set_playlist(this);
-    LOCK_GUARD_D(playing_playlist_lock, lock);
+    LOCK_GUARD_D(playing_playlist.lock, lock);
     playing_playlist = this;
 }
 std::mutex& Playlist::mutex() {
-    return playlist_member_lock;
+    return playlist_member.lock;
 }
 Playlist::iterator Playlist::begin() {
-    return playlist_member.begin();
+    return playlist_member->begin();
 }
 Playlist::iterator Playlist::end() {
-    return playlist_member.end();
+    return playlist_member->end();
 }
 void Playlist::add(std::filesystem::path path) {
-    proc_insert(path, playlist_member.end());
+    proc_insert(path, playlist_member->end());
 }
 void Playlist::insert(std::filesystem::path path, iterator pos) {
     proc_insert(path, pos);
 }
 void Playlist::erase(iterator pos){
     auto to_erase_audio = *pos;
-    LOCK_GUARD_D(playing_playlist_lock, pplock);
+    LOCK_GUARD_D(playing_playlist.lock, pplock);
     if(playing_playlist == this) {
         playing_playlist_erase(std::distance(begin(), pos));
     }
-    playlist_member.erase(pos);
-    audio_files.release_audio_ref(to_erase_audio);
+    playlist_member->erase(pos);
+    audio_files->release_audio_ref(to_erase_audio);
 }
 void Playlist::clear() {
-    for(auto a = playlist_member.begin(); a != playlist_member.end();++a) {
+    for(auto a = playlist_member->begin(); a != playlist_member->end();++a) {
         erase(a);
     }
 }
 u64 Playlist::size() {
-    return playlist_member.size();
+    return playlist_member->size();
 }
 bool Playlist::empty(){
-    return playlist_member.empty();
+    return playlist_member->empty();
 }
 AudioFile* Playlist::operator[](u64 n) {
-    return playlist_member[n];
+    return playlist_member.data[n];
 }
 Playlist::~Playlist() {
     {
-        LOCK_GUARD_D(playing_playlist_lock, pplock);
+        LOCK_GUARD_D(playing_playlist.lock, pplock);
         if(playing_playlist == this) {
             DEBUG_OUT("Deleting playing playlist!");
         }
     }
-    LOCK_GUARD_D(playlist_member_lock, pmlock);
+    LOCK_GUARD_D(playlist_member.lock, pmlock);
     clear();
 }
 }
