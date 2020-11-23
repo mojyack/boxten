@@ -58,7 +58,7 @@ void       fill_buffer() {
 }
 Worker     fill_buffer_thread;
 void       buffer_underrun_handler() {
-    printf("underrun!");
+    DEBUG_OUT("buffer underrun!");
     if(!get_if_playlist_left()) stop_playback();
 }
 
@@ -84,6 +84,11 @@ enum COMMAND {
     SEEK_RATE_REL,
 };
 void proc_resume_playback();
+i64  proc_get_playing_index() {
+    if(playback_state == PLAYBACK_STATE::STOPPED) return -1;
+    LOCK_GUARD_D(filled_frame_pos.lock, lock);
+    return filled_frame_pos->song;
+}
 i64 proc_get_playback_pos() {
     static u64 fallback = 0;
     if(playback_state == PLAYBACK_STATE::STOPPED) return -1;
@@ -261,6 +266,10 @@ void seek_rate_abs(f64 rate, bool blocking) {
 void seek_rate_rel(f64 rate, bool blocking){
     playback_thread.enqueue(PlaybackControl(COMMAND::SEEK_RATE_REL, *reinterpret_cast<u64*>(&rate)));
     if(blocking) playback_thread.wait_empty();
+}
+i64 get_playing_index(){
+    LOCK_GUARD_D(playback_thread.wait_empty(), lock);
+    return proc_get_playing_index();
 }
 i64 get_playback_pos() {
     LOCK_GUARD_D(playback_thread.wait_empty(), lock);
