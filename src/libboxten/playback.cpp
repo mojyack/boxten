@@ -84,9 +84,9 @@ enum COMMAND {
     SEEK_RATE_REL,
 };
 void proc_resume_playback();
-u64 proc_get_playback_pos() {
+i64 proc_get_playback_pos() {
     static u64 fallback = 0;
-    if(playback_state == PLAYBACK_STATE::STOPPED) return 0;
+    if(playback_state == PLAYBACK_STATE::STOPPED) return -1;
     if(playback_state == PLAYBACK_STATE::PAUSED) return paused_frame_pos;
     LOCK_GUARD_D(playing_packet.lock, pplock);
     auto now     = std::chrono::system_clock::now();
@@ -262,7 +262,7 @@ void seek_rate_rel(f64 rate, bool blocking){
     playback_thread.enqueue(PlaybackControl(COMMAND::SEEK_RATE_REL, *reinterpret_cast<u64*>(&rate)));
     if(blocking) playback_thread.wait_empty();
 }
-u64 get_playback_pos() {
+i64 get_playback_pos() {
     LOCK_GUARD_D(playback_thread.wait_empty(), lock);
     return proc_get_playback_pos();
 }
