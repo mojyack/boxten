@@ -34,11 +34,15 @@ std::filesystem::path Component::get_resource_dir(){
     }
     return resource_dir;
 }
-void Component::install_eventhook(std::function<void(void)> hook, std::initializer_list<EVENT> events) {
-    for(auto e:events){
+void Component::install_eventhook(HookFunction hook, Events event) {
+    boxten::install_eventhook(hook, event, this);
+}
+void Component::install_eventhook(HookFunction hook, std::initializer_list<Events> events) {
+    for(auto e : events) {
         boxten::install_eventhook(hook, e, this);
     }
 }
+
 Component::Component(void* param) : 
     Configurator(reinterpret_cast<ComponentConstructionParam*>(param)->module_name.data()),
     decrement_component_count(reinterpret_cast<ComponentConstructionParam*>(param)->decrement_component_count),

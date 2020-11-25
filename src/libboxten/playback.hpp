@@ -3,7 +3,7 @@
 
 namespace boxten {
 class Playlist;
-enum PLAYBACK_STATE {
+enum PlaybackState {
     STOPPED,
     PLAYING,
     PAUSED,
@@ -17,7 +17,7 @@ void           seek_rate_abs(f64 rate, bool blocking = false);
 void           seek_rate_rel(f64 rate, bool blocking = false);
 i64            get_playing_index();
 i64            get_playback_pos();
-PLAYBACK_STATE get_playback_state();
+PlaybackState  get_playback_state();
 n_frames       get_playing_song_length();
 bool           get_if_playlist_left();
 } // namespace boxten

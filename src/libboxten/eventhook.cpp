@@ -10,20 +10,23 @@
 namespace boxten{
 namespace {
 struct InstalledEventhook {
-    std::function<void(void)> hook;
-    EVENT                     event;
-    Component*                component;
-    InstalledEventhook(std::function<void(void)> hook, EVENT event, Component* component) : hook(hook), event(event), component(component) {}
+    HookFunction hook;
+    Events       event;
+    Component*   component;
+    InstalledEventhook(HookFunction hook, Events event, Component* component) : hook(hook), event(event), component(component) {}
 };
 SafeVar<std::vector<InstalledEventhook>> installed_eventhooks;
 
-class HookInvoker : public QueueThread<EVENT> {
+class HookInvoker : public QueueThread<std::pair<Events, void*>> {
   private:
-    void proc(std::vector<EVENT> queue_to_proc) override {
+    void proc(std::vector<std::pair<Events, void*>> queue_to_proc) override {
         std::lock_guard<std::mutex> ilock(installed_eventhooks.lock);
         for(auto e : queue_to_proc) {
             for(auto& i : installed_eventhooks.data) {
-                if(i.event == e) i.hook();
+                if(i.event == e.first) i.hook(e.first, e.second);
+            }
+            if(e.second != nullptr){
+                delete e.second;
             }
         }
     }
@@ -34,7 +37,7 @@ class HookInvoker : public QueueThread<EVENT> {
 HookInvoker hook_invoker;
 } // namespace
 
-void install_eventhook(std::function<void(void)> hook, EVENT event, Component* component) {
+void install_eventhook(HookFunction hook, Events event, Component* component) {
     std::lock_guard<std::mutex> lock(installed_eventhooks.lock);
     installed_eventhooks->emplace_back(hook, event, component);
 }
@@ -48,8 +51,8 @@ void uninstall_eventhook(Component* component){
         }
     }
 }
-void invoke_eventhook(EVENT event){
-    hook_invoker.enqueue(event);
+void invoke_eventhook(Events event, void* param){
+    hook_invoker.enqueue(std::make_pair(event, param));
 }
 void start_hook_invoker(){
     hook_invoker.start();

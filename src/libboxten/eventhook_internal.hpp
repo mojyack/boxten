@@ -4,9 +4,9 @@
 
 namespace boxten{
 class Component;
-void install_eventhook(std::function<void(void)> hook, EVENT event, Component* component);
+void install_eventhook(HookFunction hook, Events event, Component* component);
 void uninstall_eventhook(Component* component);
-void invoke_eventhook(EVENT event);
+void invoke_eventhook(Events event, void* param = nullptr);
 void start_hook_invoker();
 void finish_hook_invoker();
 }

@@ -37,7 +37,8 @@ class Component : public Configurator {
 
   protected:
     std::filesystem::path get_resource_dir();
-    void                  install_eventhook(std::function<void(void)> hook, std::initializer_list<EVENT> events);
+    void                  install_eventhook(HookFunction hook, Events event);
+    void                  install_eventhook(HookFunction hook, std::initializer_list<Events> events);
 
   public:
     const ComponentName  component_name;
