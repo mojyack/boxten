@@ -15,6 +15,8 @@ void           pause_playback(bool blocking = false);
 void           resume_playback(bool blocking = false);
 void           seek_rate_abs(f64 rate, bool blocking = false);
 void           seek_rate_rel(f64 rate, bool blocking = false);
+void           change_song_abs(i64 index, bool blocking = false);
+void           change_song_rel(i64 val, bool blocking = false);
 i64            get_playing_index();
 i64            get_playback_pos();
 PlaybackState  get_playback_state();

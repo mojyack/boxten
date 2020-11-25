@@ -32,7 +32,7 @@ void                    fill_buffer() {
         while(buffer.free_frame() >= PCMPACKET_PERIOD && !end_of_playlist) {
             LOCK_GUARD_D(filled_frame_pos.lock, lock);
             LOCK_GUARD_D(playing_playlist->mutex(), plock);
-            if(filled_frame_pos->song >= playing_playlist->size()) {
+            if(filled_frame_pos->song >= static_cast<i64>(playing_playlist->size())) {
                 end_of_playlist = true;
                 continue;
             }
@@ -42,7 +42,7 @@ void                    fill_buffer() {
             auto     packet      = stream_input->read_frames(audio_file, filled_frame_pos->frame, to_read);
             filled_frame_pos->frame += packet.get_frames();
             if(filled_frame_pos->frame + 1 >= audio_file.get_total_frames()) {
-                if(filled_frame_pos->song + 1 == playing_playlist->size()) {
+                if(filled_frame_pos->song + 1 == static_cast<i64>(playing_playlist->size())) {
                     end_of_playlist = true;
                     continue;
                 } else {
@@ -82,6 +82,8 @@ enum COMMAND {
     RESUME,
     SEEK_RATE_ABS,
     SEEK_RATE_REL,
+    CHANGE_SONG_ABS,
+    CHANGE_SONG_REL,
 };
 void proc_resume_playback();
 i64  proc_get_playing_index() {
@@ -177,7 +179,7 @@ void proc_seek_rate_abs(f64 rate) {
         LOCK_GUARD_D(filled_frame_pos.lock, lock);
         LOCK_GUARD_D(playing_playlist->mutex(), plock);
 
-        if(filled_frame_pos->song >= playing_playlist->size()) return;
+        if(filled_frame_pos->song >= static_cast<i64>(playing_playlist->size())) return;
         auto& audio_file        = *(*playing_playlist)[filled_frame_pos->song];
         filled_frame_pos->frame = audio_file.get_total_frames() * rate;
     }
@@ -190,11 +192,11 @@ void proc_seek_rate_rel(f64 rate) {
         LOCK_GUARD_D(filled_frame_pos.lock, lock);
         LOCK_GUARD_D(playing_playlist->mutex(), plock);
 
-        if(filled_frame_pos->song >= playing_playlist->size()) return;
+        if(filled_frame_pos->song >= static_cast<i64>(playing_playlist->size())) return;
         auto& audio_file = *(*playing_playlist)[filled_frame_pos->song];
         filled_frame_pos->frame *= rate;
         if(filled_frame_pos->frame + 1 >= audio_file.get_total_frames()) {
-            if(filled_frame_pos->song == playing_playlist->size()) {
+            if(filled_frame_pos->song == static_cast<i64>(playing_playlist->size())) {
                 end_of_playlist = true;
             } else {
                 filled_frame_pos->song++;
@@ -204,11 +206,35 @@ void proc_seek_rate_rel(f64 rate) {
     }
     buffer.clear();
 }
+void proc_change_song_abs(i64 index){
+    if(index < 0) return;
+    {
+        LOCK_GUARD_D(playing_playlist->mutex(), plock);
+        if(index >= static_cast<i64>(playing_playlist->size())) return;
+        LOCK_GUARD_D(filled_frame_pos.lock, flock);
+        invoke_eventhook(Events::SONG_CHANGE, new HookParameters::SongChange{filled_frame_pos->song, index});
+        filled_frame_pos->song  = index;
+        filled_frame_pos->frame = 0;
+    }
+    buffer.clear();
+}
+void proc_change_song_rel(i64 val){
+    if(val == 0) return;
+    {
+        LOCK_GUARD_D(filled_frame_pos.lock, flock);
+        LOCK_GUARD_D(playing_playlist->mutex(), plock);
+        if(filled_frame_pos->song + val < 0) return;
+        if(filled_frame_pos->song + val >= static_cast<i64>(playing_playlist->size())) return;
+        invoke_eventhook(Events::SONG_CHANGE, new HookParameters::SongChange{filled_frame_pos->song, filled_frame_pos->song + val});
+        filled_frame_pos->song += val;
+        filled_frame_pos->frame = 0;
+    }
+    buffer.clear();
+}
 
 struct PlaybackControl {
     COMMAND command;
-    u64     arg;
-    PlaybackControl(COMMAND command, u64 arg = 0) : command(command), arg(arg) {}
+    i64     arg;
 };
 class PlaybackThread : public QueueThread<PlaybackControl> {
   private:
@@ -233,6 +259,12 @@ class PlaybackThread : public QueueThread<PlaybackControl> {
             case COMMAND::SEEK_RATE_REL:
                 proc_seek_rate_rel(*reinterpret_cast<f64*>(&c.arg));
                 break;
+            case COMMAND::CHANGE_SONG_ABS:
+                proc_change_song_abs(c.arg);
+                break;
+            case COMMAND::CHANGE_SONG_REL:
+                proc_change_song_rel(c.arg);
+                break;
             }
         }
     }
@@ -244,27 +276,35 @@ PlaybackThread playback_thread;
 } // namespace
 
 void start_playback(bool blocking) {
-    playback_thread.enqueue(PlaybackControl(COMMAND::PLAY, 0));
+    playback_thread.enqueue(PlaybackControl{COMMAND::PLAY, 0});
     if(blocking) playback_thread.wait_empty();
 }
 void stop_playback(bool blocking) {
-    playback_thread.enqueue(PlaybackControl(COMMAND::STOP, 0));
+    playback_thread.enqueue(PlaybackControl{COMMAND::STOP, 0});
     if(blocking) playback_thread.wait_empty();
 }
 void pause_playback(bool blocking) {
-    playback_thread.enqueue(PlaybackControl(COMMAND::PAUSE, 0));
+    playback_thread.enqueue(PlaybackControl{COMMAND::PAUSE, 0});
     if(blocking) playback_thread.wait_empty();
 }
 void resume_playback(bool blocking) {
-    playback_thread.enqueue(PlaybackControl(COMMAND::RESUME, 0));
+    playback_thread.enqueue(PlaybackControl{COMMAND::RESUME, 0});
     if(blocking) playback_thread.wait_empty();
 }
 void seek_rate_abs(f64 rate, bool blocking) {
-    playback_thread.enqueue(PlaybackControl(COMMAND::SEEK_RATE_ABS, *reinterpret_cast<u64*>(&rate)));
+    playback_thread.enqueue(PlaybackControl{COMMAND::SEEK_RATE_ABS, *reinterpret_cast<i64*>(&rate)});
     if(blocking) playback_thread.wait_empty();
 }
 void seek_rate_rel(f64 rate, bool blocking) {
-    playback_thread.enqueue(PlaybackControl(COMMAND::SEEK_RATE_REL, *reinterpret_cast<u64*>(&rate)));
+    playback_thread.enqueue(PlaybackControl{COMMAND::SEEK_RATE_REL, *reinterpret_cast<i64*>(&rate)});
+    if(blocking) playback_thread.wait_empty();
+}
+void change_song_abs(i64 index, bool blocking){
+    playback_thread.enqueue(PlaybackControl{COMMAND::CHANGE_SONG_ABS, index});
+    if(blocking) playback_thread.wait_empty();
+}
+void change_song_rel(i64 val, bool blocking){
+    playback_thread.enqueue(PlaybackControl{COMMAND::CHANGE_SONG_REL, val});
     if(blocking) playback_thread.wait_empty();
 }
 i64 get_playing_index() {
@@ -284,7 +324,7 @@ n_frames get_playing_song_length() {
     LOCK_GUARD_D(filled_frame_pos.lock, flock);
     LOCK_GUARD_D(playing_playlist->mutex(), plock);
 
-    if(filled_frame_pos->song >= playing_playlist->size()) return 0;
+    if(filled_frame_pos->song >= static_cast<i64>(playing_playlist->size())) return 0;
     auto& audio_file = *(*playing_playlist)[filled_frame_pos->song];
     return audio_file.get_total_frames();
 }
@@ -319,7 +359,7 @@ void playing_playlist_insert(u64 pos, AudioFile* audio_file) {
     // Because this function only be called from Playlist::proc_insert()
     LOCK_GUARD_D(filled_frame_pos.lock, lock);
 
-    if(pos > filled_frame_pos->song) {
+    if(static_cast<i64>(pos) > filled_frame_pos->song) {
         /* New music will be inserted after playing music. Nothing to do. */
     } else {
         /* correction filled_frame_pos */
@@ -332,9 +372,9 @@ void playing_playlist_erase(u64 pos) {
     // Because this function only be called from Playlist::erase()
     LOCK_GUARD_D(filled_frame_pos.lock, lock);
 
-    if(pos > filled_frame_pos->song) {
+    if(static_cast<i64>(pos) > filled_frame_pos->song) {
         /* The music is after playing music. Nothing to do. */
-    } else if(pos < filled_frame_pos->song) {
+    } else if(static_cast<i64>(pos) < filled_frame_pos->song) {
         filled_frame_pos->song--;
     } else { // pos == playing_music_num
         filled_frame_pos->frame = 0;
