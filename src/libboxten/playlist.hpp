@@ -5,7 +5,7 @@
 
 namespace boxten {
 class Playlist {
-    typedef std::vector<AudioFile*>::iterator iterator;
+    using iterator = std::vector<AudioFile*>::iterator;
 
   private:
     SafeVar<std::string>             name;

@@ -20,7 +20,7 @@ DO_STATEMENT(reinterpret_cast<type>(dlsym(library_handle, sym_name)), found = va
 
 namespace boxten {
 namespace {
-typedef std::pair<Component*, std::function<void(Component* arg)>> SeachResult;
+using SeachResult = std::pair<Component*, std::function<void(Component* arg)>>;
 class LibraryInfo {
   private:
     std::filesystem::path library_path;

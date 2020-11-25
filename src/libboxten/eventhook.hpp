@@ -9,7 +9,7 @@ enum Events {
     PLAYBACK_CHANGE,
     SONG_CHANGE,
 };
-typedef std::function<void(Events, void*)> HookFunction;
+using HookFunction = std::function<void(Events, void*)>;
 namespace HookParameters {
 struct PlaybackChange {
     PlaybackState old_state;

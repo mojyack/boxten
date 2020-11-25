@@ -103,7 +103,7 @@ struct ComponentInfo {
                   std::function<Component*(void* arg)> alloc,
                   std::function<void(Component* arg)>  free) : name(name), type(type), alloc(alloc), free(free) {}
 };
-typedef std::vector<ComponentInfo> ComponentCatalogue;
+using ComponentCatalogue = std::vector<ComponentInfo>;
 
 #define BOXTEN_MODULE(...)                                                           \
     extern "C" const char                       module_name[]       = MODULE_NAME;   \

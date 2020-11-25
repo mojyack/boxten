@@ -5,19 +5,19 @@
 #include <string>
 #include <vector>
 
-typedef std::int8_t i8;
-typedef std::int16_t i16;
-typedef std::int32_t i32;
-typedef std::int64_t i64;
-typedef std::uint8_t u8;
-typedef std::uint16_t u16;
-typedef std::uint32_t u32;
-typedef std::uint64_t u64;
-typedef float f32;
-typedef double f64;
+using i8  = std::int8_t;
+using i16 = std::int16_t;
+using i32 = std::int32_t;
+using i64 = std::int64_t;
+using u8  = std::uint8_t;
+using u16 = std::uint16_t;
+using u32 = std::uint32_t;
+using u64 = std::uint64_t;
+using f32 = float;
+using f64 = double;
 
 namespace boxten {
-typedef u64 n_frames;
+using n_frames = u64;
 
 enum FORMAT_SAMPLE_TYPE {
     UNKNOWN,
@@ -84,9 +84,9 @@ struct PCMPacketUnit {
         return pcm.size() / format.get_bytewidth() / format.channels;
     }
 };
-typedef std::vector<PCMPacketUnit>         PCMPacket;
-typedef std::array<std::string, 2>         ComponentName;
-typedef std::map<std::string, std::string> AudioTag;
+using PCMPacket     = std::vector<PCMPacketUnit>;
+using ComponentName = std::array<std::string, 2>;
+using AudioTag      = std::map<std::string, std::string>;
 struct LayoutData {
     enum {
         UNKNOWN,
