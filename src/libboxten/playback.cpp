@@ -179,7 +179,7 @@ void proc_seek_rate_abs(f64 rate) {
         LOCK_GUARD_D(filled_frame_pos.lock, lock);
         LOCK_GUARD_D(playing_playlist->mutex(), plock);
 
-        if(filled_frame_pos->song >= static_cast<i64>(playing_playlist->size())) return;
+        if(filled_frame_pos->song < 0 || filled_frame_pos->song >= static_cast<i64>(playing_playlist->size())) return;
         auto& audio_file        = *(*playing_playlist)[filled_frame_pos->song];
         filled_frame_pos->frame = audio_file.get_total_frames() * rate;
     }
@@ -192,7 +192,7 @@ void proc_seek_rate_rel(f64 rate) {
         LOCK_GUARD_D(filled_frame_pos.lock, lock);
         LOCK_GUARD_D(playing_playlist->mutex(), plock);
 
-        if(filled_frame_pos->song >= static_cast<i64>(playing_playlist->size())) return;
+        if(filled_frame_pos->song < 0 || filled_frame_pos->song >= static_cast<i64>(playing_playlist->size())) return;
         auto& audio_file = *(*playing_playlist)[filled_frame_pos->song];
         filled_frame_pos->frame *= rate;
         if(filled_frame_pos->frame + 1 >= audio_file.get_total_frames()) {
@@ -324,7 +324,7 @@ n_frames get_playing_song_length() {
     LOCK_GUARD_D(filled_frame_pos.lock, flock);
     LOCK_GUARD_D(playing_playlist->mutex(), plock);
 
-    if(filled_frame_pos->song >= static_cast<i64>(playing_playlist->size())) return 0;
+    if(filled_frame_pos->song < 0 || filled_frame_pos->song >= static_cast<i64>(playing_playlist->size())) return 0;
     auto& audio_file = *(*playing_playlist)[filled_frame_pos->song];
     return audio_file.get_total_frames();
 }
