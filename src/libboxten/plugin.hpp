@@ -15,22 +15,7 @@ enum COMPONENT_TYPE {
     WIDGET,
 };
 
-class Configurator {
-  private:
-    std::string domain;
-
-  protected:
-    bool get_string(const char* key, std::string& result);
-    bool get_string_array(const char* key, std::vector<std::string>& result);
-    void set_string_array(const char* key, const std::vector<std::string>& data);
-    bool get_number(const char* key, i64& result);
-    bool load_configuration(nlohmann::json& config_data);
-    bool save_configuration(const nlohmann::json& config_data);
-
-    Configurator(const char* domain);
-};
-
-class Component : public Configurator {
+class Component {
   private:
     std::filesystem::path     resource_dir;
     std::function<void(void)> decrement_component_count;
@@ -39,6 +24,14 @@ class Component : public Configurator {
     std::filesystem::path get_resource_dir();
     void                  install_eventhook(HookFunction hook, Events event);
     void                  install_eventhook(HookFunction hook, std::initializer_list<Events> events);
+    
+    // configurator
+    bool get_string(const char* key, std::string& result);
+    bool get_string_array(const char* key, std::vector<std::string>& result);
+    void set_string_array(const char* key, const std::vector<std::string>& data);
+    bool get_number(const char* key, i64& result);
+    bool load_configuration(nlohmann::json& config_data);
+    bool save_configuration(const nlohmann::json& config_data);
 
   public:
     const ComponentName  component_name;

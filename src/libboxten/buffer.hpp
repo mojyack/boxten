@@ -26,6 +26,7 @@ class Buffer {
     void append(PCMPacket& packet);
     PCMPacket cut(n_frames frame);
     PCMFormat get_next_format();
+    bool      has_enough_packets();
 
     void set_buffer_underrun_handler(std::function<void(void)> handler);
 };

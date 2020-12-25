@@ -15,6 +15,17 @@ StreamOutput* stream_output    = nullptr;
 Playlist*     playing_playlist = nullptr;
 
 Buffer buffer;
+bool playback_frozen = false; // if true, stream_output->pause_playback() was called in order to wait buffer filled after  underrun.
+void buffer_underrun_handler() {
+    DEBUG_OUT("buffer underrun!");
+    if(!get_if_playlist_left()) {
+        stop_playback();
+    } else if(!playback_frozen) {
+        stream_output->pause_playback();
+        playback_frozen = true;
+    }
+}
+
 struct FilledFramePos {
     i64 song = -1;
     u64 frame;
@@ -40,8 +51,8 @@ void                    fill_buffer() {
             n_frames frames_left = audio_file.get_total_frames() - (filled_frame_pos->frame + 1);
             n_frames to_read     = frames_left >= PCMPACKET_PERIOD ? PCMPACKET_PERIOD : frames_left;
             auto     packet      = stream_input->read_frames(audio_file, filled_frame_pos->frame, to_read);
-            filled_frame_pos->frame += packet.get_frames();
-            if(filled_frame_pos->frame + 1 >= audio_file.get_total_frames()) {
+            filled_frame_pos->frame = packet.original_frame_pos[1] + 1;
+            if(filled_frame_pos->frame >= audio_file.get_total_frames()) {
                 if(filled_frame_pos->song + 1 == static_cast<i64>(playing_playlist->size())) {
                     end_of_playlist = true;
                     continue;
@@ -52,15 +63,17 @@ void                    fill_buffer() {
                 }
             }
             buffer.append(packet);
+            if(playback_frozen){
+                if(buffer.has_enough_packets()){
+                    stream_output->resume_playback();
+                    playback_frozen = false;
+                }
+            }
         }
         buffer.need_fill_buffer = false;
     }
 }
 Worker fill_buffer_thread;
-void   buffer_underrun_handler() {
-    DEBUG_OUT("buffer underrun!");
-    if(!get_if_playlist_left()) stop_playback();
-}
 
 struct PlayingPacket {
     struct PacketFormat {

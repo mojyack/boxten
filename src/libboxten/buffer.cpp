@@ -2,7 +2,8 @@
 
 
 namespace boxten{
-constexpr u64 BUFFER_LIMIT = PCMPACKET_PERIOD * 32; // frames
+constexpr u64 buffer_limit = PCMPACKET_PERIOD * 32; // frames
+constexpr u64 unfreeze_threshold = PCMPACKET_PERIOD * 16;
 
 void Buffer::notify_need_fill_buffer(){
     std::lock_guard<std::mutex> lock(need_fill_buffer.lock);
@@ -26,7 +27,7 @@ n_frames Buffer::filled_frame() {
 }
 n_frames Buffer::free_frame() {
     auto filled = filled_frame();
-    return BUFFER_LIMIT < filled ? 0 : BUFFER_LIMIT - filled;
+    return buffer_limit < filled ? 0 : buffer_limit - filled;
 }
 void Buffer::append(PCMPacketUnit& packet) {
     std::lock_guard<std::mutex> lock(data.lock);
@@ -93,6 +94,9 @@ PCMFormat Buffer::get_next_format() {
         return result;
     }
     return data->operator[](0).format;
+}
+bool Buffer::has_enough_packets(){
+    return filled_frame() >= unfreeze_threshold;
 }
 void Buffer::set_buffer_underrun_handler(std::function<void(void)> handler){
     buffer_underrun_handler = handler;
