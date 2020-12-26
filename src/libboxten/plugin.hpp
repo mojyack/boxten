@@ -2,6 +2,7 @@
 #include <functional>
 
 #include "audiofile.hpp"
+#include "console.hpp"
 #include "eventhook.hpp"
 #include "json.hpp"
 #include "type.hpp"
@@ -16,6 +17,10 @@ enum COMPONENT_TYPE {
 };
 
 class Component {
+  public:
+    const ComponentName  component_name;
+    const COMPONENT_TYPE component_type;
+
   private:
     std::filesystem::path     resource_dir;
     std::function<void(void)> decrement_component_count;
@@ -24,7 +29,9 @@ class Component {
     std::filesystem::path get_resource_dir();
     void                  install_eventhook(HookFunction hook, Events event);
     void                  install_eventhook(HookFunction hook, std::initializer_list<Events> events);
-    
+
+    ConsoleSet console;
+
     // configurator
     bool get_string(const char* key, std::string& result);
     bool get_string_array(const char* key, std::vector<std::string>& result);
@@ -34,8 +41,6 @@ class Component {
     bool save_configuration(const nlohmann::json& config_data);
 
   public:
-    const ComponentName  component_name;
-    const COMPONENT_TYPE component_type;
     Component(void* param);
     virtual ~Component();
 };
@@ -47,10 +52,10 @@ class SoundProcessor : public Component {
 
   public:
     SoundProcessor(void* param) : Component(param) {}
-    virtual ~SoundProcessor(){}
+    virtual ~SoundProcessor() {}
 };
 
-class Module : public Component{
+class Module : public Component {
   public:
     Module(void* param) : Component(param) {}
     virtual ~Module() {}
@@ -62,7 +67,7 @@ class StreamInput : public Component {
     virtual n_frames      calc_total_frames(AudioFile& file)                      = 0;
     virtual AudioTag      read_tags(AudioFile& file)                              = 0;
     StreamInput(void* param) : Component(param) {}
-    virtual ~StreamInput(){}
+    virtual ~StreamInput() {}
 };
 
 class StreamOutput : public Component {
@@ -78,18 +83,18 @@ class StreamOutput : public Component {
     virtual void     pause_playback()  = 0;
     virtual void     resume_playback() = 0;
     StreamOutput(void* param) : Component(param) {}
-    virtual ~StreamOutput(){}
+    virtual ~StreamOutput() {}
 };
 
 class Widget : public Component {
   public:
     Widget(void* param) : Component(param) {}
-    virtual ~Widget(){}
+    virtual ~Widget() {}
 };
 
 struct ComponentInfo {
-    std::string    name;
-    COMPONENT_TYPE type;
+    std::string                          name;
+    COMPONENT_TYPE                       type;
     std::function<Component*(void* arg)> alloc;
     std::function<void(Component* arg)>  free;
     ComponentInfo(std::string name, COMPONENT_TYPE type,
@@ -98,15 +103,15 @@ struct ComponentInfo {
 };
 using ComponentCatalogue = std::vector<ComponentInfo>;
 
-#define BOXTEN_MODULE(...)                                                           \
-    extern "C" const char                       module_name[]       = MODULE_NAME;   \
-    extern "C" const boxten::ComponentCatalogue component_catalogue = {__VA_ARGS__}; \
+#define BOXTEN_MODULE(...)                                                         \
+    extern "C" const char                       module_name[]       = MODULE_NAME; \
+    extern "C" const boxten::ComponentCatalogue component_catalogue = {__VA_ARGS__};
 
-#define CATALOGUE_CALLBACK(component_name)         \
-    [](void* arg) -> boxten::Component* {          \
-        return new component_name(arg);            \
-    },                                             \
-    [](boxten::Component* arg) {                   \
-        delete dynamic_cast<component_name*>(arg); \
-    }
+#define CATALOGUE_CALLBACK(component_name)             \
+    [](void* arg) -> boxten::Component* {              \
+        return new component_name(arg);                \
+    },                                                 \
+        [](boxten::Component* arg) {                   \
+            delete dynamic_cast<component_name*>(arg); \
+        }
 } // namespace boxten

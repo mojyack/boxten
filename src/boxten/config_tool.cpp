@@ -6,6 +6,7 @@
 #include <module.hpp>
 
 #include "config_tool.hpp"
+#include "global.hpp"
 #include "module.hpp"
 
 std::filesystem::path find_config_dir() {
@@ -36,14 +37,14 @@ bool get_module_dirs(std::vector<std::filesystem::path>& dirs) {
     boxten::config::set_string_array(key, std::vector<std::string>{module_path.string()});
     return true;
 }
-bool get_input_component(boxten::ComponentName& c_name){
-    constexpr const char* key = "input_component";
+bool get_input_component(boxten::ComponentName& c_name) {
+    constexpr const char*    key = "input_component";
     std::vector<std::string> str_array;
     if(!boxten::config::get_string_array(key, str_array) || str_array.size() != 2) {
         DEBUG_OUT("failed to get input component path.");
         boxten::config::set_string_array(key, {"Wav input module", "Wav input"});
         return true;
-    }else{
+    } else {
         c_name[0] = str_array[0];
         c_name[1] = str_array[1];
         return true;
@@ -62,14 +63,14 @@ bool get_output_component(boxten::ComponentName& c_name) {
         return true;
     }
 }
-bool apply_layout(BaseWindow& base_window, boxten::LayoutData layout){
+bool apply_layout(BaseWindow& base_window, boxten::LayoutData layout) {
     bool result = true;
 
     std::function<void(const boxten::LayoutData&, QObject&, bool)> install = [&install, &result](const boxten::LayoutData& cfg, QObject& parent, bool is_parent_base_window) {
         if(cfg.type == boxten::LayoutData::WIDGET) {
             auto component = boxten::search_component(cfg.name);
             if(component == nullptr) {
-                boxten::console << "cannot find component: " << cfg.name[0] << "/" << cfg.name[1] << std::endl;
+                console.error << "cannot find component: " << cfg.name[0] << "/" << cfg.name[1] << std::endl;
                 result = false;
                 return;
             }

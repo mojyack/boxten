@@ -1,11 +1,18 @@
 #include "plugin.hpp"
 #include "config.h"
 #include "configuration.hpp"
+#include "console.hpp"
 #include "eventhook_internal.hpp"
 #include "module_forward.hpp"
 #include "playback_internal.hpp"
 
 namespace boxten {
+namespace {
+inline std::string build_console_prefix(const std::string& name) {
+    std::string prefix = "[" + name + "] ";
+    return prefix;
+}
+} // namespace
 std::filesystem::path Component::get_resource_dir() {
     if(resource_dir.empty()) {
         resource_dir = DATADIR;
@@ -39,9 +46,10 @@ bool Component::load_configuration(nlohmann::json& config_data) {
 bool Component::save_configuration(const nlohmann::json& config_data) {
     return boxten::config::save_configuration(config_data, component_name[0].data());
 }
-Component::Component(void* param) : decrement_component_count(reinterpret_cast<ComponentConstructionParam*>(param)->decrement_component_count),
-                                    component_name({reinterpret_cast<ComponentConstructionParam*>(param)->module_name, reinterpret_cast<ComponentConstructionParam*>(param)->info.name}),
-                                    component_type(reinterpret_cast<ComponentConstructionParam*>(param)->info.type) {}
+Component::Component(void* param) : component_name({reinterpret_cast<ComponentConstructionParam*>(param)->module_name, reinterpret_cast<ComponentConstructionParam*>(param)->info.name}),
+                                    component_type(reinterpret_cast<ComponentConstructionParam*>(param)->info.type),
+                                    decrement_component_count(reinterpret_cast<ComponentConstructionParam*>(param)->decrement_component_count),
+                                    console(build_console_prefix(component_name[0]).data()) {}
 Component::~Component() {
     uninstall_eventhook(this);
     decrement_component_count();

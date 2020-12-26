@@ -12,11 +12,15 @@
 #include <playback_internal.hpp>
 #include <worker_internal.hpp>
 
-#include "gui.hpp"
 #include "config_tool.hpp"
+#include "console.hpp"
+#include "global.hpp"
+#include "gui.hpp"
+
+boxten::ConsoleSet console("[boxten] ");
 
 int main(int argc, char* argv[]) {
-    boxten::console << "boxten" << std::endl;
+    console.message << "boxten" << std::endl;
 
     /* start threads */
     boxten::start_master_thread();
@@ -25,7 +29,8 @@ int main(int argc, char* argv[]) {
 
     auto config_dir = find_config_dir();
     if(!boxten::config::set_config_dir(config_dir)) {
-        boxten::console << "failed to set configuration directory: " << config_dir << std::endl;
+        console.error << "failed to set configuration directory: " << config_dir << std::endl;
+
         exit(1);
     }
 
@@ -42,7 +47,7 @@ int main(int argc, char* argv[]) {
         get_input_component(input_component_name);
         input_component = boxten::search_component(input_component_name);
         if(input_component == nullptr) {
-            boxten::console << "cannot find input conponent" << std::endl;
+            console.error << "cannot find input conponent" << std::endl;
             exit(1);
         }
         boxten::set_stream_input(dynamic_cast<boxten::StreamInput*>(input_component));
@@ -50,9 +55,9 @@ int main(int argc, char* argv[]) {
     {
         boxten::ComponentName output_component_name;
         get_output_component(output_component_name);
-        output_component  = boxten::search_component(output_component_name);
+        output_component = boxten::search_component(output_component_name);
         if(output_component == nullptr) {
-            boxten::console << "cannot find output conponent" << std::endl;
+            console.error << "cannot find output conponent" << std::endl;
             exit(1);
         }
         boxten::set_stream_output(dynamic_cast<boxten::StreamOutput*>(output_component));
@@ -67,7 +72,7 @@ int main(int argc, char* argv[]) {
         exit(1);
     }
     if(!apply_layout(*base_window, layout)) {
-        boxten::console << "cannot set layout." << std::endl;
+        console.error << "cannot set layout." << std::endl;
         exit(1);
     }
 
@@ -83,6 +88,5 @@ int main(int argc, char* argv[]) {
     boxten::finish_hook_invoker();
     boxten::finish_playback_thread();
     boxten::finish_master_thread().join();
-    boxten::console << std::endl;
     return 0;
 }
