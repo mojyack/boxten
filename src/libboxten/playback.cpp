@@ -3,9 +3,11 @@
 
 #include "buffer.hpp"
 #include "console.hpp"
+#include "debug.hpp"
 #include "eventhook_internal.hpp"
 #include "playback.hpp"
 #include "playback_internal.hpp"
+#include "type.hpp"
 #include "worker.hpp"
 
 namespace boxten {
@@ -87,8 +89,20 @@ struct PlayingPacket {
         u64 playing_frame_pos[2];
         u32 sampling_rate;
     };
+    std::optional<u64>                    seeked_to; // if holds value, use this as a playing pos.
     std::vector<PacketFormat>             packet_formats;
     std::chrono::system_clock::time_point update_time;
+    void                                  refresh(const PCMPacket& packet) {
+        packet_formats.clear();
+        for(auto& p : packet) {
+            PlayingPacket::PacketFormat format;
+            format.playing_frame_pos[0] = p.original_frame_pos[0];
+            format.playing_frame_pos[1] = p.original_frame_pos[1];
+            format.sampling_rate        = p.format.sampling_rate;
+            packet_formats.emplace_back(format);
+        }
+        update_time = std::chrono::system_clock::now();
+    };
 };
 SafeVar<PlayingPacket> playing_packet;
 u64                    paused_frame_pos = 0;
@@ -116,6 +130,9 @@ i64 proc_get_playback_pos() {
     if(playback_state == PlaybackState::STOPPED) return -1;
     if(playback_state == PlaybackState::PAUSED) return paused_frame_pos;
     LOCK_GUARD_D(playing_packet.lock, pplock);
+    if(playing_packet->seeked_to){
+        return playing_packet->seeked_to.value();
+    }
     auto now = std::chrono::system_clock::now();
     for(auto& p : playing_packet->packet_formats) {
         auto     elapsed     = std::chrono::duration_cast<std::chrono::milliseconds>(now - playing_packet->update_time).count();
@@ -128,7 +145,6 @@ i64 proc_get_playback_pos() {
         u64 current = p.playing_frame_pos[0] + dur * rate;
         u64 delay   = stream_output->output_delay();
         fallback    = current < delay ? 0 : current - delay;
-        // DEBUG_OUT(fallback);
         return fallback;
     }
     // Sometimes reach here because of timer error.
@@ -202,6 +218,9 @@ void proc_seek_rate_abs(f64 rate) {
         if(filled_frame_pos->song < 0 || filled_frame_pos->song >= static_cast<i64>(playing_playlist->size())) return;
         auto& audio_file        = *(*playing_playlist)[filled_frame_pos->song];
         filled_frame_pos->frame = audio_file.get_total_frames() * rate;
+
+        LOCK_GUARD_D(playing_packet.lock, pplock);
+        playing_packet->seeked_to = filled_frame_pos->frame;
     }
     buffer.clear();
 }
@@ -223,6 +242,8 @@ void proc_seek_rate_rel(f64 rate) {
                 filled_frame_pos->frame = 0;
             }
         }
+        LOCK_GUARD_D(playing_packet.lock, pplock);
+        playing_packet->seeked_to = filled_frame_pos->frame;
     }
     buffer.clear();
 }
@@ -235,6 +256,9 @@ void proc_change_song_abs(i64 index) {
         invoke_eventhook(Events::SONG_CHANGE, new HookParameters::SongChange{filled_frame_pos->song, index});
         filled_frame_pos->song  = index;
         filled_frame_pos->frame = 0;
+
+        LOCK_GUARD_D(playing_packet.lock, pplock);
+        playing_packet->seeked_to = filled_frame_pos->frame;
     }
     buffer.clear();
 }
@@ -248,6 +272,9 @@ void proc_change_song_rel(i64 val) {
         invoke_eventhook(Events::SONG_CHANGE, new HookParameters::SongChange{filled_frame_pos->song, filled_frame_pos->song + val});
         filled_frame_pos->song += val;
         filled_frame_pos->frame = 0;
+
+        LOCK_GUARD_D(playing_packet.lock, pplock);
+        playing_packet->seeked_to = filled_frame_pos->frame;
     }
     buffer.clear();
 }
@@ -410,15 +437,8 @@ PCMPacket get_buffer_pcm_packet(n_frames frames) {
     auto packet = buffer.cut(frames);
     if(!packet.empty()) {
         LOCK_GUARD_D(playing_packet.lock, lock);
-        playing_packet->packet_formats.clear();
-        for(auto& p : packet) {
-            PlayingPacket::PacketFormat format;
-            format.playing_frame_pos[0] = p.original_frame_pos[0];
-            format.playing_frame_pos[1] = p.original_frame_pos[1];
-            format.sampling_rate        = p.format.sampling_rate;
-            playing_packet->packet_formats.emplace_back(format);
-        }
-        playing_packet->update_time = std::chrono::system_clock::now();
+        playing_packet->refresh(packet);
+        playing_packet->seeked_to.reset();
     }
     return packet;
 }

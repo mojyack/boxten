@@ -20,7 +20,7 @@ void Buffer::clear(){
 n_frames Buffer::filled_frame() {
     n_frames filled = 0;
     std::lock_guard<std::mutex> lock(data.lock);
-    for(auto& b : PCMPacket(data)) {
+    for(auto& b : static_cast<PCMPacket&>(data)) {
         filled += b.get_frames();
     }
     return filled;
