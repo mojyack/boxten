@@ -19,54 +19,54 @@ using f64 = double;
 namespace boxten {
 using n_frames = u64;
 
-enum FORMAT_SAMPLE_TYPE {
-    UNKNOWN,
-    FLOAT,
-    S8,
-    U8,
-    S16_LE,
-    S16_BE,
-    U16_LE,
-    U16_BE,
-    S24_LE,
-    S24_BE,
-    U24_LE,
-    U24_BE,
-    S32_LE,
-    S32_BE,
-    U32_LE,
-    U32_BE,
+enum class SampleType {
+    unknown,
+    f,
+    s8,
+    u8,
+    s16_le,
+    s16_be,
+    u16_le,
+    u16_be,
+    s24_le,
+    s24_be,
+    u24_le,
+    u24_be,
+    s32_le,
+    s32_be,
+    u32_le,
+    u32_be,
 };
-struct PCMFormat {
-    FORMAT_SAMPLE_TYPE sample_type;
-    u32 channels;
-    u32 sampling_rate;
-    u32 get_bytewidth() {
-        switch(sample_type) {
-        case S8:
-        case U8:
-            return 1;
-        case S16_LE:
-        case S16_BE:
-        case U16_LE:
-        case U16_BE:
-            return 2;
-        case S24_LE:
-        case S24_BE:
-        case U24_LE:
-        case U24_BE:
-            return 3;
-        case FLOAT:
-        case S32_LE:
-        case S32_BE:
-        case U32_LE:
-        case U32_BE:
-            return 4;
-        default:
-            return 0;
-        }
+inline size_t get_sample_bytewidth(SampleType type) {
+    switch(type) {
+    case SampleType::s8:
+    case SampleType::u8:
+        return 1;
+    case SampleType::s16_le:
+    case SampleType::s16_be:
+    case SampleType::u16_le:
+    case SampleType::u16_be:
+        return 2;
+    case SampleType::s24_le:
+    case SampleType::s24_be:
+    case SampleType::u24_le:
+    case SampleType::u24_be:
+        return 3;
+    case SampleType::f:
+    case SampleType::s32_le:
+    case SampleType::s32_be:
+    case SampleType::u32_le:
+    case SampleType::u32_be:
+        return 4;
+    default:
+        return 0;
     }
-    bool operator==(const PCMFormat& a) const {
+}
+struct PCMFormat {
+    SampleType sample_type;
+    u32        channels;
+    u32        sampling_rate;
+    bool       operator==(const PCMFormat& a) const {
         return sample_type == a.sample_type &&
                channels == a.channels &&
                sampling_rate == a.sampling_rate;
@@ -77,11 +77,11 @@ struct PCMFormat {
 };
 constexpr n_frames PCMPACKET_PERIOD = 512;
 struct PCMPacketUnit {
-    PCMFormat format;
-    u64 original_frame_pos[2];
+    PCMFormat       format;
+    u64             original_frame_pos[2];
     std::vector<u8> pcm;
-    n_frames get_frames() {
-        return pcm.size() / format.get_bytewidth() / format.channels;
+    n_frames        get_frames() {
+        return pcm.size() / get_sample_bytewidth(format.sample_type) / format.channels;
     }
 };
 using PCMPacket     = std::vector<PCMPacketUnit>;
@@ -98,25 +98,25 @@ struct LayoutData {
     std::vector<LayoutData> children;
 };
 template <typename T>
-struct SafeVar{
-    T data;
+struct SafeVar {
+    T          data;
     std::mutex lock;
-    operator std::mutex(){
+               operator std::mutex() {
         return lock;
     }
-    operator T&(){
+    operator T&() {
         return data;
     }
-    T operator=(const T d){
+    T operator=(const T d) {
         data = d;
         return data;
     }
-    T* operator->(){
+    T* operator->() {
         return &data;
     }
-    SafeVar(){}
+    SafeVar() {}
     SafeVar(T data) : data(data) {}
-    SafeVar(const SafeVar<T>& src){
+    SafeVar(const SafeVar<T>& src) {
         data = src.data;
     }
 };

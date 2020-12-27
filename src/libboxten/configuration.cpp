@@ -12,7 +12,6 @@
 namespace boxten::config {
 namespace {
 
-
 std::filesystem::path config_home_dir;
 std::filesystem::path config_path;
 
@@ -89,8 +88,8 @@ bool get_layout_config(LayoutData& layout) {
         if(std::string type; !get_string("type", type, cfg)) {
             success = false;
             return;
-        }else{
-            if(type == "vlayout"){
+        } else {
+            if(type == "vlayout") {
                 layout.type = LayoutData::V_SPLIT;
             } else if(type == "hlayout") {
                 layout.type = LayoutData::H_SPLIT;
@@ -127,7 +126,7 @@ bool get_layout_config(LayoutData& layout) {
 }
 
 bool get_string(const char* key, std::string& result, const char* module_name) {
-    nlohmann::json config_data;
+    nlohmann::json        config_data;
     std::filesystem::path path;
     if(!get_config_path(module_name, path) || !load_config_file(path, config_data)) return false;
     return get_string(key, result, config_data);
@@ -146,11 +145,19 @@ void set_string_array(const char* key, const std::vector<std::string>& data, con
     config_data[key] = data;
     save_config(path, config_data);
 }
-bool get_number(const char* key, i64& result, const char* module_name){
+bool get_number(const char* key, i64& result, const char* module_name) {
     nlohmann::json        config_data;
     std::filesystem::path path;
     if(!get_config_path(module_name, path) || !load_config_file(path, config_data)) return false;
     return get_number(key, result, config_data);
+}
+void set_number(const char* key, i64 data, const char* module_name) {
+    std::filesystem::path path;
+    if(!get_config_path(module_name, path)) return;
+    nlohmann::json config_data;
+    load_config_file(path, config_data);
+    config_data[key] = data;
+    save_config(path, config_data);
 }
 bool load_configuration(nlohmann::json& result, const char* module_name) {
     std::filesystem::path path;
@@ -164,4 +171,4 @@ bool save_configuration(const nlohmann::json& config_data, const char* module_na
     save_config(path, config_data);
     return true;
 }
-} // namespace boxten
+} // namespace boxten::config

@@ -3,24 +3,26 @@
 #include "debug.hpp"
 #include "playback_internal.hpp"
 #include "playlist.hpp"
+#include "playlist_internal.hpp"
 
-namespace boxten{
+namespace boxten {
 namespace {
-class AudioFileManager{
+class AudioFileManager {
   private:
     struct AudioFilePointer {
         AudioFile* audio_file;
         u32        ref_count = 0;
-        AudioFilePointer(std::filesystem::path path){
+        AudioFilePointer(std::filesystem::path path) {
             audio_file = new AudioFile(path);
         }
-        ~AudioFilePointer(){
+        ~AudioFilePointer() {
             if(ref_count == 0) delete audio_file;
         }
     };
     std::vector<AudioFilePointer> audio_files;
+
   public:
-    AudioFile* get_audio_ref(std::filesystem::path path){
+    AudioFile* get_audio_ref(std::filesystem::path path) {
         std::vector<AudioFilePointer>::iterator audio_file_pointer = audio_files.end();
         for(auto a = audio_files.begin(); a != audio_files.end(); ++a) {
             if(a->audio_file->get_path() == path) {
@@ -28,18 +30,18 @@ class AudioFileManager{
                 break;
             }
         }
-        if(audio_file_pointer == audio_files.end()){
+        if(audio_file_pointer == audio_files.end()) {
             audio_files.emplace_back(path);
             audio_file_pointer = audio_files.end() - 1;
         }
         audio_file_pointer->ref_count++;
         return audio_file_pointer->audio_file;
     }
-    void release_audio_ref(AudioFile* audio_file){
+    void release_audio_ref(AudioFile* audio_file) {
         for(auto a = audio_files.begin(); a != audio_files.end(); ++a) {
-            if(a->audio_file == audio_file){
+            if(a->audio_file == audio_file) {
                 a->ref_count--;
-                if(a->ref_count == 0){
+                if(a->ref_count == 0) {
                     audio_files.erase(a);
                 }
                 return;
@@ -47,12 +49,20 @@ class AudioFileManager{
         }
         DEBUG_OUT("audio file pointer not found.");
     }
+    void cleanup_private_data(StreamInput* stream_input){
+        for(auto a = audio_files.begin(); a != audio_files.end(); ++a) {
+            a->audio_file->cleanup_private_data(stream_input);
+        }
+    }
 };
 SafeVar<AudioFileManager> audio_files;
 
 SafeVar<Playlist*> playing_playlist;
 } // namespace
-
+void cleanup_private_data(StreamInput* stream_input){
+    LOCK_GUARD_D(audio_files.lock, lock);
+    audio_files->cleanup_private_data(stream_input); 
+}
 void Playlist::set_name(const char* new_name) {
     LOCK_GUARD_D(name.lock, lock);
     name = new_name;
@@ -61,7 +71,7 @@ std::string Playlist::get_name() {
     LOCK_GUARD_D(name.lock, lock);
     return name;
 }
-void Playlist::proc_insert(std::filesystem::path path, iterator pos){
+void Playlist::proc_insert(std::filesystem::path path, iterator pos) {
     LOCK_GUARD_D(audio_files.lock, aflock);
 
     auto audio_file_ref = audio_files->get_audio_ref(path);
@@ -91,24 +101,24 @@ void Playlist::add(std::filesystem::path path) {
 void Playlist::insert(std::filesystem::path path, iterator pos) {
     proc_insert(path, pos);
 }
-void Playlist::erase(iterator pos){
+Playlist::iterator Playlist::erase(iterator pos) {
     auto to_erase_audio = *pos;
     LOCK_GUARD_D(playing_playlist.lock, pplock);
     if(playing_playlist == this) {
         playing_playlist_erase(std::distance(begin(), pos));
     }
-    playlist_member->erase(pos);
     audio_files->release_audio_ref(to_erase_audio);
+    return playlist_member->erase(pos);
 }
 void Playlist::clear() {
-    for(auto a = playlist_member->begin(); a != playlist_member->end();++a) {
-        erase(a);
+    for(auto a = playlist_member->begin(); a != playlist_member->end();) {
+        a = erase(a);
     }
 }
 u64 Playlist::size() {
     return playlist_member->size();
 }
-bool Playlist::empty(){
+bool Playlist::empty() {
     return playlist_member->empty();
 }
 AudioFile* Playlist::operator[](u64 n) {
@@ -124,4 +134,4 @@ Playlist::~Playlist() {
     LOCK_GUARD_D(playlist_member.lock, pmlock);
     clear();
 }
-}
+} // namespace boxten

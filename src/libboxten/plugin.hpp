@@ -37,6 +37,7 @@ class Component {
     bool get_string_array(const char* key, std::vector<std::string>& result);
     void set_string_array(const char* key, const std::vector<std::string>& data);
     bool get_number(const char* key, i64& result);
+    void set_number(const char* key, i64 val);
     bool load_configuration(nlohmann::json& config_data);
     bool save_configuration(const nlohmann::json& config_data);
 
@@ -51,6 +52,7 @@ class SoundProcessor : public Component {
     SoundProcessor* next;
 
   public:
+    virtual bool modify_packet(PCMPacketUnit& packet) = 0;
     SoundProcessor(void* param) : Component(param) {}
     virtual ~SoundProcessor() {}
 };
@@ -67,7 +69,7 @@ class StreamInput : public Component {
     virtual n_frames      calc_total_frames(AudioFile& file)                      = 0;
     virtual AudioTag      read_tags(AudioFile& file)                              = 0;
     StreamInput(void* param) : Component(param) {}
-    virtual ~StreamInput() {}
+    virtual ~StreamInput();
 };
 
 class StreamOutput : public Component {

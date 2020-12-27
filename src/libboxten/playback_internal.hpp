@@ -3,7 +3,7 @@
 #include "plugin.hpp"
 #include "queuethread.hpp"
 
-namespace boxten{
+namespace boxten {
 /* boxten */
 void set_stream_input(StreamInput* input);
 void set_stream_output(StreamOutput* output);
@@ -23,6 +23,7 @@ PCMPacket get_buffer_pcm_packet(n_frames frames);
 PCMFormat get_buffer_pcm_format();
 
 /* AudioFile */
-n_frames get_total_frames(AudioFile* audio_file);
-AudioTag get_tags(AudioFile* audio_file);
+extern StreamInput* running_input;
+n_frames            get_total_frames(AudioFile* audio_file);
+AudioTag            get_tags(AudioFile* audio_file);
 } // namespace boxten

@@ -130,7 +130,7 @@ i64 proc_get_playback_pos() {
     if(playback_state == PlaybackState::STOPPED) return -1;
     if(playback_state == PlaybackState::PAUSED) return paused_frame_pos;
     LOCK_GUARD_D(playing_packet.lock, pplock);
-    if(playing_packet->seeked_to){
+    if(playing_packet->seeked_to) {
         return playing_packet->seeked_to.value();
     }
     auto now = std::chrono::system_clock::now();

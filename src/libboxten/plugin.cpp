@@ -5,6 +5,7 @@
 #include "eventhook_internal.hpp"
 #include "module_forward.hpp"
 #include "playback_internal.hpp"
+#include "playlist_internal.hpp"
 
 namespace boxten {
 namespace {
@@ -40,6 +41,9 @@ void Component::set_string_array(const char* key, const std::vector<std::string>
 bool Component::get_number(const char* key, i64& result) {
     return boxten::config::get_number(key, result, component_name[0].data());
 }
+void Component::set_number(const char* key, i64 val) {
+    boxten::config::set_number(key, val, component_name[0].data());
+}
 bool Component::load_configuration(nlohmann::json& config_data) {
     return boxten::config::load_configuration(config_data, component_name[0].data());
 }
@@ -54,6 +58,10 @@ Component::~Component() {
     uninstall_eventhook(this);
     decrement_component_count();
     DEBUG_OUT("component \"" << component_name[1] << "\" closed.");
+}
+
+StreamInput::~StreamInput() {
+    cleanup_private_data(this);
 }
 
 n_frames StreamOutput::output_delay() {

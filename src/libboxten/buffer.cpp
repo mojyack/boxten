@@ -1,4 +1,5 @@
 #include "buffer.hpp"
+#include "type.hpp"
 
 
 namespace boxten{
@@ -65,7 +66,7 @@ PCMPacket Buffer::cut(n_frames frame) {
 
             n_frames in_vector = (*i).get_frames();
             if(in_vector > to_cut) {
-                u64 limit = (*i).format.channels * to_cut * (*i).format.get_bytewidth();
+                u64 limit = (*i).format.channels * to_cut * get_sample_bytewidth((*i).format.sample_type);
                 std::copy((*i).pcm.begin(), (*i).pcm.begin() + limit, std::back_inserter(new_packet.pcm));
                 (*i).pcm.erase((*i).pcm.begin(), (*i).pcm.begin() + limit);
                 new_packet.original_frame_pos[0] = (*i).original_frame_pos[0];
@@ -90,7 +91,7 @@ PCMFormat Buffer::get_next_format() {
     std::lock_guard<std::mutex> lock(data.lock);
     if(data->empty()){
         PCMFormat result;
-        result.sample_type = FORMAT_SAMPLE_TYPE::UNKNOWN;
+        result.sample_type = SampleType::unknown;
         return result;
     }
     return data->operator[](0).format;

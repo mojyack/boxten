@@ -23,7 +23,7 @@ class Playlist {
     iterator    end();
     void        add(std::filesystem::path path);
     void        insert(std::filesystem::path path, iterator pos);
-    void        erase(iterator pos);
+    iterator    erase(iterator pos);
     void        clear();
     u64         size();
     bool        empty();
