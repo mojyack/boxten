@@ -19,8 +19,8 @@ using f64 = double;
 namespace boxten {
 using n_frames = u64;
 
-enum class SampleType {
-    unknown,
+enum class SampleType : size_t {
+    unknown = 0,
     f,
     s8,
     u8,
@@ -66,7 +66,10 @@ struct PCMFormat {
     SampleType sample_type;
     u32        channels;
     u32        sampling_rate;
-    bool       operator==(const PCMFormat& a) const {
+    size_t     get_sample_bytewidth() {
+        return boxten::get_sample_bytewidth(sample_type);
+    }
+    bool operator==(const PCMFormat& a) const {
         return sample_type == a.sample_type &&
                channels == a.channels &&
                sampling_rate == a.sampling_rate;
