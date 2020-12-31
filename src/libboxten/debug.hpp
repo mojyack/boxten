@@ -7,12 +7,12 @@
 
 // #define USE_LOCK_GUARD_D
 
-#ifdef DEBUG
+#if defined(DEBUG)
 void debug_print_mutex_info(const char* name, const char* func, const char* file, int line, char icon);
 void debug_pring_worker_start(const char* file, int line, char icon);
 #endif
 
-#ifdef DEBUG
+#if defined(DEBUG)
     class LockGuardWithDebug {
   private:
     const char*                  mutex_name;
@@ -33,7 +33,7 @@ void debug_pring_worker_start(const char* file, int line, char icon);
     }
 };
 
-#ifdef USE_LOCK_GUARD_D
+#if defined(USE_LOCK_GUARD_D)
 #define LOCK_GUARD_D(mutex, name) LockGuardWithDebug name(#mutex, __func__, mutex, __FILE__, __LINE__)
 #else
 #define LOCK_GUARD_D(m, name) std::lock_guard<std::mutex> name(m)
@@ -42,8 +42,8 @@ void debug_pring_worker_start(const char* file, int line, char icon);
 #define WORKER_BEGIN debug_pring_worker_start(__FILE__, __LINE__, '{')
 #define WORKER_FINISH debug_pring_worker_start(__FILE__, __LINE__, '}')
 #define DEBUG_OUT(message) std::cout << message << __FILE__ << " : " << __func__ << "(" << __LINE__ << ")" << std::endl;
-#elif
+#else
 #define WORKER_BEGIN
 #define WORKER_FINISH
-#deinfe DEBUG_OUT(m)
+#define DEBUG_OUT(m)
 #endif

@@ -16,6 +16,8 @@
 #include "console.hpp"
 #include "global.hpp"
 #include "gui.hpp"
+#include "plugin.hpp"
+#include "type.hpp"
 
 boxten::ConsoleSet console("[boxten] ");
 
@@ -41,13 +43,14 @@ int main(int argc, char* argv[]) {
         boxten::scan_modules(module_dirs);
     }
     boxten::Component *input_component, *output_component;
+    std::vector<boxten::SoundProcessor*> sound_processors;
     /* set input&output component */
     {
         boxten::ComponentName input_component_name;
         get_input_component(input_component_name);
         input_component = boxten::search_component(input_component_name);
         if(input_component == nullptr) {
-            console.error << "cannot find input conponent" << std::endl;
+            console.error << "cannot find input conponent.";
             exit(1);
         }
         boxten::set_stream_input(dynamic_cast<boxten::StreamInput*>(input_component));
@@ -57,10 +60,24 @@ int main(int argc, char* argv[]) {
         get_output_component(output_component_name);
         output_component = boxten::search_component(output_component_name);
         if(output_component == nullptr) {
-            console.error << "cannot find output conponent" << std::endl;
+            console.error << "cannot find output conponent.";
             exit(1);
         }
         boxten::set_stream_output(dynamic_cast<boxten::StreamOutput*>(output_component));
+    }
+    /* load dsp */
+    {
+        std::vector<boxten::ComponentName> dsp_names;
+        get_dsp_chain_component(dsp_names);
+        for(auto& n:dsp_names){
+            auto c = dynamic_cast<boxten::SoundProcessor*>(boxten::search_component(n));
+            if(c == nullptr){
+                console.error << "cannot find dsp component.";
+            }else{
+                sound_processors.emplace_back(c); 
+            }
+        }
+        boxten::set_dsp_chain(sound_processors);
     }
 
     /* load layout */
@@ -83,6 +100,9 @@ int main(int argc, char* argv[]) {
 
     boxten::close_component(input_component);
     boxten::close_component(output_component);
+    for(auto c:sound_processors){
+        boxten::close_component(c);
+    }
     boxten::free_modules();
 
     boxten::finish_hook_invoker();

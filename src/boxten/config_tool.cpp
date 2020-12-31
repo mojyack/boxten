@@ -8,6 +8,7 @@
 #include "config_tool.hpp"
 #include "global.hpp"
 #include "module.hpp"
+#include "type.hpp"
 
 std::filesystem::path find_config_dir() {
     std::filesystem::path config_dir      = PREFIX;
@@ -62,6 +63,20 @@ bool get_output_component(boxten::ComponentName& c_name) {
         c_name[1] = str_array[1];
         return true;
     }
+}
+bool get_dsp_chain_component(std::vector<boxten::ComponentName>& c_names) {
+    constexpr const char* key = "dsp_chain";
+    nlohmann::json        config;
+    if(boxten::config::load_configuration(config)) {
+        for(auto& name : config[key]) {
+            boxten::ComponentName dsp_name;
+            dsp_name[0] = name[0].get<std::string>();
+            dsp_name[1] = name[1].get<std::string>();
+            c_names.emplace_back(dsp_name);
+        }
+        return true;
+    }
+    return false;
 }
 bool apply_layout(BaseWindow& base_window, boxten::LayoutData layout) {
     bool result = true;

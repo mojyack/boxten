@@ -1,4 +1,5 @@
 #include <chrono>
+#include <fcntl.h>
 #include <mutex>
 
 #include "buffer.hpp"
@@ -7,14 +8,16 @@
 #include "eventhook_internal.hpp"
 #include "playback.hpp"
 #include "playback_internal.hpp"
+#include "plugin.hpp"
 #include "type.hpp"
 #include "worker.hpp"
 
 namespace boxten {
 namespace {
-StreamInput*  stream_input     = nullptr;
-StreamOutput* stream_output    = nullptr;
-Playlist*     playing_playlist = nullptr;
+StreamInput*                          stream_input  = nullptr;
+StreamOutput*                         stream_output = nullptr;
+SafeVar<std::vector<SoundProcessor*>> dsp_chain;
+Playlist*                             playing_playlist = nullptr;
 
 Buffer buffer;
 bool   playback_starting = false; // if true, playback is started but stream_output->start_playback() has not called yet.
@@ -62,10 +65,16 @@ void                    fill_buffer() {
                 end_of_playlist = true;
                 continue;
             }
-            auto&    audio_file     = *(*playing_playlist)[filled_frame_pos->song];
-            n_frames frames_left    = audio_file.get_total_frames() - (filled_frame_pos->frame + 1);
-            n_frames to_read        = frames_left >= PCMPACKET_PERIOD ? PCMPACKET_PERIOD : frames_left;
-            auto     packet         = stream_input->read_frames(audio_file, filled_frame_pos->frame, to_read);
+            auto&    audio_file  = *(*playing_playlist)[filled_frame_pos->song];
+            n_frames frames_left = audio_file.get_total_frames() - (filled_frame_pos->frame + 1);
+            n_frames to_read     = frames_left >= PCMPACKET_PERIOD ? PCMPACKET_PERIOD : frames_left;
+            auto     packet      = stream_input->read_frames(audio_file, filled_frame_pos->frame, to_read);
+            {
+                LOCK_GUARD_D(dsp_chain.lock, lock);
+                for(auto c : dsp_chain.data) {
+                    c->modify_packet(packet);
+                }
+            }
             filled_frame_pos->frame = packet.original_frame_pos[1] + 1;
             if(filled_frame_pos->frame >= audio_file.get_total_frames()) {
                 if(filled_frame_pos->song + 1 == static_cast<i64>(playing_playlist->size())) {
@@ -385,6 +394,10 @@ void set_stream_input(StreamInput* input) {
 }
 void set_stream_output(StreamOutput* output) {
     stream_output = output;
+}
+void set_dsp_chain(std::vector<SoundProcessor*> dsp) {
+    LOCK_GUARD_D(dsp_chain.lock, lock);
+    dsp_chain.data = dsp;
 }
 void start_playback_thread() {
     playback_thread.start();

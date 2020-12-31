@@ -7,6 +7,7 @@ namespace boxten {
 /* boxten */
 void set_stream_input(StreamInput* input);
 void set_stream_output(StreamOutput* output);
+void set_dsp_chain(std::vector<SoundProcessor*> dsp_chain);
 void start_playback_thread();
 void finish_playback_thread();
 
@@ -23,7 +24,6 @@ PCMPacket get_buffer_pcm_packet(n_frames frames);
 PCMFormat get_buffer_pcm_format();
 
 /* AudioFile */
-extern StreamInput* running_input;
-n_frames            get_total_frames(AudioFile* audio_file);
-AudioTag            get_tags(AudioFile* audio_file);
+n_frames get_total_frames(AudioFile* audio_file);
+AudioTag get_tags(AudioFile* audio_file);
 } // namespace boxten

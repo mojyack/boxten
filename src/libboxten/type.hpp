@@ -21,7 +21,8 @@ using n_frames = u64;
 
 enum class SampleType : size_t {
     unknown = 0,
-    f,
+    f32_le,
+    f32_be,
     s8,
     u8,
     s16_le,
@@ -52,7 +53,8 @@ inline size_t get_sample_bytewidth(SampleType type) {
     case SampleType::u24_le:
     case SampleType::u24_be:
         return 3;
-    case SampleType::f:
+    case SampleType::f32_le:
+    case SampleType::f32_be:
     case SampleType::s32_le:
     case SampleType::s32_be:
     case SampleType::u32_le:

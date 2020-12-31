@@ -13,4 +13,5 @@ std::filesystem::path find_config_dir();
 bool                  get_module_dirs(std::vector<std::filesystem::path>& dirs);
 bool                  get_input_component(boxten::ComponentName& c_name);
 bool                  get_output_component(boxten::ComponentName& c_name);
+bool                  get_dsp_chain_component(std::vector<boxten::ComponentName>& c_names);
 bool                  apply_layout(BaseWindow& base_window, boxten::LayoutData layout);
