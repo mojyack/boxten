@@ -85,7 +85,7 @@ int main(int argc, char* argv[]) {
     auto               base_window = new BaseWindow;
     boxten::LayoutData layout;
     if(!boxten::config::get_layout_config(layout)) {
-        DEBUG_OUT("cannot load layout config.");
+        console.error << "cannot load layout config.";
         exit(1);
     }
     if(!apply_layout(*base_window, layout)) {

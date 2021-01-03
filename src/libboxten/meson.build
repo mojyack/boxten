@@ -10,6 +10,7 @@ libboxten_headers = [
     'eventhook.hpp',
     'json.hpp',
     'jsontest.hpp',
+    'queuethread.hpp',
 ]
 
 libboxten_sources = [

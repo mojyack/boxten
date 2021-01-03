@@ -2,6 +2,7 @@
 #include "config.h"
 #include "configuration.hpp"
 #include "console.hpp"
+#include "debug.hpp"
 #include "eventhook_internal.hpp"
 #include "module_forward.hpp"
 #include "playback_internal.hpp"

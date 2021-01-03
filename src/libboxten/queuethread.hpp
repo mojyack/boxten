@@ -1,9 +1,7 @@
-/* This is an internal header, which will not be installed. */
 #pragma once
 #include <mutex>
 #include <condition_variable>
 
-#include "debug.hpp"
 #include "type.hpp"
 #include "worker.hpp"
 

@@ -7,3 +7,4 @@
 #include "plugin.hpp"
 #include "type.hpp"
 #include "worker.hpp"
+#include "queuethread.hpp"
