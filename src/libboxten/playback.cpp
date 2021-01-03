@@ -59,8 +59,8 @@ void                    fill_buffer() {
         });
         if(finish_fill_buffer_thread) break;
         while(buffer.free_frame() >= PCMPACKET_PERIOD && !end_of_playlist) {
-            LOCK_GUARD_D(filled_frame_pos.lock, lock);
-            LOCK_GUARD_D(playing_playlist->mutex(), plock);
+            std::lock_guard<std::mutex> lock(filled_frame_pos.lock);
+            std::lock_guard<std::mutex> plock(playing_playlist->mutex());
             if(filled_frame_pos->song >= static_cast<i64>(playing_playlist->size())) {
                 end_of_playlist = true;
                 continue;
@@ -70,7 +70,7 @@ void                    fill_buffer() {
             n_frames to_read     = frames_left >= PCMPACKET_PERIOD ? PCMPACKET_PERIOD : frames_left;
             auto     packet      = stream_input->read_frames(audio_file, filled_frame_pos->frame, to_read);
             {
-                LOCK_GUARD_D(dsp_chain.lock, lock);
+                std::lock_guard<std::mutex> lock(dsp_chain.lock);
                 for(auto c : dsp_chain.data) {
                     c->modify_packet(packet);
                 }
@@ -131,14 +131,14 @@ enum COMMAND {
 void proc_resume_playback();
 i64  proc_get_playing_index() {
     if(playback_state == PlaybackState::STOPPED) return -1;
-    LOCK_GUARD_D(filled_frame_pos.lock, lock);
+    std::lock_guard<std::mutex> lock(filled_frame_pos.lock);
     return filled_frame_pos->song;
 }
 i64 proc_get_playback_pos() {
     static u64 fallback = 0;
     if(playback_state == PlaybackState::STOPPED) return -1;
     if(playback_state == PlaybackState::PAUSED) return paused_frame_pos;
-    LOCK_GUARD_D(playing_packet.lock, pplock);
+    std::lock_guard<std::mutex> lock(playing_packet.lock);
     if(playing_packet->seeked_to) {
         return playing_packet->seeked_to.value();
     }
@@ -168,9 +168,9 @@ void proc_start_playback() {
         return;
     }
 
-    if(LOCK_GUARD_D(playing_playlist->mutex(), plock); playing_playlist->empty()) return;
+    if(std::lock_guard<std::mutex> lock(playing_playlist->mutex()); playing_playlist->empty()) return;
 
-    LOCK_GUARD_D(filled_frame_pos.lock, lock);
+    std::lock_guard<std::mutex> lock(filled_frame_pos.lock);
     invoke_eventhook(Events::SONG_CHANGE, new HookParameters::SongChange{filled_frame_pos->song, 0});
     filled_frame_pos->song  = 0;
     filled_frame_pos->frame = 0;
@@ -210,7 +210,7 @@ void proc_resume_playback() {
     if(playback_state != PlaybackState::PAUSED) return;
 
     {
-        LOCK_GUARD_D(playing_packet.lock, lock);
+        std::lock_guard<std::mutex> lock(playing_packet.lock);
         playing_packet->update_time = std::chrono::system_clock::now();
     }
     stream_output->resume_playback();
@@ -221,14 +221,14 @@ void proc_seek_rate_abs(f64 rate) {
     if(rate < 0.0) return;
     if(rate > 1.0) return;
     {
-        LOCK_GUARD_D(filled_frame_pos.lock, lock);
-        LOCK_GUARD_D(playing_playlist->mutex(), plock);
+        std::lock_guard<std::mutex> fflock(filled_frame_pos.lock);
+        std::lock_guard<std::mutex> pllock(playing_playlist->mutex());
 
         if(filled_frame_pos->song < 0 || filled_frame_pos->song >= static_cast<i64>(playing_playlist->size())) return;
         auto& audio_file        = *(*playing_playlist)[filled_frame_pos->song];
         filled_frame_pos->frame = audio_file.get_total_frames() * rate;
 
-        LOCK_GUARD_D(playing_packet.lock, pplock);
+        std::lock_guard<std::mutex> pplock(playing_packet.lock);
         playing_packet->seeked_to = filled_frame_pos->frame;
     }
     buffer.clear();
@@ -237,8 +237,8 @@ void proc_seek_rate_rel(f64 rate) {
     if(rate < -1.0) return;
     if(rate > 1.0) return;
     {
-        LOCK_GUARD_D(filled_frame_pos.lock, lock);
-        LOCK_GUARD_D(playing_playlist->mutex(), plock);
+        std::lock_guard<std::mutex> fflock(filled_frame_pos.lock);
+        std::lock_guard<std::mutex> pllock(playing_playlist->mutex());
 
         if(filled_frame_pos->song < 0 || filled_frame_pos->song >= static_cast<i64>(playing_playlist->size())) return;
         auto& audio_file = *(*playing_playlist)[filled_frame_pos->song];
@@ -251,7 +251,7 @@ void proc_seek_rate_rel(f64 rate) {
                 filled_frame_pos->frame = 0;
             }
         }
-        LOCK_GUARD_D(playing_packet.lock, pplock);
+        std::lock_guard<std::mutex> pplock(playing_packet.lock);
         playing_packet->seeked_to = filled_frame_pos->frame;
     }
     buffer.clear();
@@ -259,14 +259,14 @@ void proc_seek_rate_rel(f64 rate) {
 void proc_change_song_abs(i64 index) {
     if(index < 0) return;
     {
-        LOCK_GUARD_D(playing_playlist->mutex(), plock);
+        std::lock_guard<std::mutex> pllock(playing_playlist->mutex());
         if(index >= static_cast<i64>(playing_playlist->size())) return;
-        LOCK_GUARD_D(filled_frame_pos.lock, flock);
+        std::lock_guard<std::mutex> fflock(filled_frame_pos.lock);
         invoke_eventhook(Events::SONG_CHANGE, new HookParameters::SongChange{filled_frame_pos->song, index});
         filled_frame_pos->song  = index;
         filled_frame_pos->frame = 0;
 
-        LOCK_GUARD_D(playing_packet.lock, pplock);
+        std::lock_guard<std::mutex> pplock(playing_packet.lock);
         playing_packet->seeked_to = filled_frame_pos->frame;
     }
     buffer.clear();
@@ -274,15 +274,15 @@ void proc_change_song_abs(i64 index) {
 void proc_change_song_rel(i64 val) {
     if(val == 0) return;
     {
-        LOCK_GUARD_D(filled_frame_pos.lock, flock);
-        LOCK_GUARD_D(playing_playlist->mutex(), plock);
+        std::lock_guard<std::mutex> fflock(filled_frame_pos.lock);
+        std::lock_guard<std::mutex> pllock(playing_playlist->mutex());
         if(filled_frame_pos->song + val < 0) return;
         if(filled_frame_pos->song + val >= static_cast<i64>(playing_playlist->size())) return;
         invoke_eventhook(Events::SONG_CHANGE, new HookParameters::SongChange{filled_frame_pos->song, filled_frame_pos->song + val});
         filled_frame_pos->song += val;
         filled_frame_pos->frame = 0;
 
-        LOCK_GUARD_D(playing_packet.lock, pplock);
+        std::lock_guard<std::mutex> pplock(playing_packet.lock);
         playing_packet->seeked_to = filled_frame_pos->frame;
     }
     buffer.clear();
@@ -364,21 +364,21 @@ void change_song_rel(i64 val, bool blocking) {
     if(blocking) playback_thread.wait_empty();
 }
 i64 get_playing_index() {
-    LOCK_GUARD_D(playback_thread.wait_empty(), lock);
+    std::lock_guard<std::mutex> lock(playback_thread.wait_empty());
     return proc_get_playing_index();
 }
 i64 get_playback_pos() {
-    LOCK_GUARD_D(playback_thread.wait_empty(), lock);
+    std::lock_guard<std::mutex> lock(playback_thread.wait_empty());
     return proc_get_playback_pos();
 }
 PlaybackState get_playback_state() {
-    LOCK_GUARD_D(playback_thread.wait_empty(), lock);
+    std::lock_guard<std::mutex> lock(playback_thread.wait_empty());
     return playback_state;
 }
 n_frames get_playing_song_length() {
-    LOCK_GUARD_D(playback_thread.wait_empty(), qlock);
-    LOCK_GUARD_D(filled_frame_pos.lock, flock);
-    LOCK_GUARD_D(playing_playlist->mutex(), plock);
+    std::lock_guard<std::mutex> lock(playback_thread.wait_empty());
+    std::lock_guard<std::mutex> fflock(filled_frame_pos.lock);
+    std::lock_guard<std::mutex> pllock(playing_playlist->mutex());
 
     if(filled_frame_pos->song < 0 || filled_frame_pos->song >= static_cast<i64>(playing_playlist->size())) return 0;
     auto& audio_file = *(*playing_playlist)[filled_frame_pos->song];
@@ -396,7 +396,7 @@ void set_stream_output(StreamOutput* output) {
     stream_output = output;
 }
 void set_dsp_chain(std::vector<SoundProcessor*> dsp) {
-    LOCK_GUARD_D(dsp_chain.lock, lock);
+    std::lock_guard<std::mutex> lock(dsp_chain.lock);
     dsp_chain.data = dsp;
 }
 void start_playback_thread() {
@@ -417,7 +417,7 @@ void unset_playlist() {
 void playing_playlist_insert(u64 pos, AudioFile* audio_file) {
     // playing_playlist->mutex() must be locked
     // Because this function only be called from Playlist::proc_insert()
-    LOCK_GUARD_D(filled_frame_pos.lock, lock);
+    std::lock_guard<std::mutex> lock(filled_frame_pos.lock);
 
     if(static_cast<i64>(pos) > filled_frame_pos->song) {
         /* New music will be inserted after playing music. Nothing to do. */
@@ -430,7 +430,7 @@ void playing_playlist_insert(u64 pos, AudioFile* audio_file) {
 void playing_playlist_erase(u64 pos) {
     // playing_playlist->mutex() must be locked
     // Because this function only be called from Playlist::erase()
-    LOCK_GUARD_D(filled_frame_pos.lock, lock);
+    std::lock_guard<std::mutex> lock(filled_frame_pos.lock);
 
     if(static_cast<i64>(pos) > filled_frame_pos->song) {
         /* The music is after playing music. Nothing to do. */
@@ -449,7 +449,7 @@ n_frames get_buffer_filled_frames() {
 PCMPacket get_buffer_pcm_packet(n_frames frames) {
     auto packet = buffer.cut(frames);
     if(!packet.empty()) {
-        LOCK_GUARD_D(playing_packet.lock, lock);
+        std::lock_guard<std::mutex> lock(playing_packet.lock);
         playing_packet->refresh(packet);
         playing_packet->seeked_to.reset();
     }

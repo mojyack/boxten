@@ -16,7 +16,7 @@ if(auto var = fnc; var != nullptr) {           \
     }
 
 #define FIND_SYM(sym_name, type, found, error_message, on_fail) \
-DO_STATEMENT(reinterpret_cast<type>(dlsym(library_handle, sym_name)), found = var, if(error_message != nullptr) DEBUG_OUT(error_message << "(dlsym failed: " << dlerror() << ")"); on_fail)
+DO_STATEMENT(reinterpret_cast<type>(dlsym(library_handle, sym_name)), found = var, if(error_message != nullptr) {DEBUG_OUT(error_message << "(dlsym failed: " << dlerror() << ")")}; on_fail)
 
 namespace boxten {
 namespace {
@@ -116,7 +116,7 @@ LibraryInfo::LibraryInfo(const char* path):library_path(path) {
         /* create simple catalogue */
         FIND_SYM("component_catalogue", ComponentCatalogue*, exported_component_catalogue, "cannot find component_catalogue", break);
         for(auto& c : *exported_component_catalogue){
-            component_catalogue.emplace_back(c.name, c.type);
+            component_catalogue.emplace_back(SimpleComponentCatalogue({c.name, c.type}));
         }
         error = false;
     } while(0);

@@ -23,9 +23,7 @@ void notify_workers_changed(){
 
 void WorkerThread::start() {
     auto new_work = [&]() {
-        WORKER_BEGIN;
         function();
-        WORKER_FINISH;
         {
             std::lock_guard<std::mutex> lock(state.lock);
             state = STATE::FINISHED;

@@ -23,7 +23,6 @@ libboxten_sources = [
     'configuration.cpp',
     'module.cpp',
     'eventhook.cpp',
-    'debug.cpp',
     'jsontest.cpp',
 ]
 

@@ -28,7 +28,7 @@ class QueueThread {
             {
                 std::unique_lock<std::mutex> clock(queue_changed.lock);
                 queue_changed_cond.wait(clock, [&]() { return queue_changed || finish_thread; });
-                LOCK_GUARD_D(queue.lock, lock);
+                std::lock_guard<std::mutex> lock(queue.lock);
                 queue_processing = true;
                 queue_to_proc = queue;
                 queue->clear();
@@ -52,18 +52,18 @@ class QueueThread {
     }
     void enqueue(T data){
         {
-            LOCK_GUARD_D(queue.lock, lock);
+            std::lock_guard<std::mutex> lock(queue.lock);
             queue->emplace_back(data);
         }
         {
-            LOCK_GUARD_D(queue_changed.lock, lock);
+            std::lock_guard<std::mutex> lock(queue_changed.lock);
             queue_changed = true;
             queue_changed_cond.notify_one();
         }
     }
     std::mutex& wait_empty() {
         while(!finish_thread) {
-            LOCK_GUARD_D(queue.lock, lock);
+            std::lock_guard<std::mutex> lock(queue.lock);
             if(queue->empty() && !queue_processing) {
                 break;
             }

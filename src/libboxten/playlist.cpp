@@ -60,22 +60,22 @@ SafeVar<AudioFileManager> audio_files;
 SafeVar<Playlist*> playing_playlist;
 } // namespace
 void cleanup_private_data(StreamInput* stream_input){
-    LOCK_GUARD_D(audio_files.lock, lock);
+    std::lock_guard<std::mutex> lock(audio_files.lock);
     audio_files->cleanup_private_data(stream_input); 
 }
 void Playlist::set_name(const char* new_name) {
-    LOCK_GUARD_D(name.lock, lock);
+    std::lock_guard<std::mutex> lock(name.lock);
     name = new_name;
 }
 std::string Playlist::get_name() {
-    LOCK_GUARD_D(name.lock, lock);
+    std::lock_guard<std::mutex> lock(name.lock);
     return name;
 }
 void Playlist::proc_insert(std::filesystem::path path, iterator pos) {
-    LOCK_GUARD_D(audio_files.lock, aflock);
+    std::lock_guard<std::mutex> alock(audio_files.lock);
 
     auto audio_file_ref = audio_files->get_audio_ref(path);
-    LOCK_GUARD_D(playing_playlist.lock, pplock);
+    std::lock_guard<std::mutex> plock(playing_playlist.lock);
     if(playing_playlist == this) {
         playing_playlist_insert(std::distance(begin(), pos), audio_file_ref);
     }
@@ -83,7 +83,7 @@ void Playlist::proc_insert(std::filesystem::path path, iterator pos) {
 }
 void Playlist::activate() {
     boxten::set_playlist(this);
-    LOCK_GUARD_D(playing_playlist.lock, lock);
+    std::lock_guard<std::mutex> plock(playing_playlist.lock);
     playing_playlist = this;
 }
 std::mutex& Playlist::mutex() {
@@ -103,7 +103,7 @@ void Playlist::insert(std::filesystem::path path, iterator pos) {
 }
 Playlist::iterator Playlist::erase(iterator pos) {
     auto to_erase_audio = *pos;
-    LOCK_GUARD_D(playing_playlist.lock, pplock);
+    std::lock_guard<std::mutex> plock(playing_playlist.lock);
     if(playing_playlist == this) {
         playing_playlist_erase(std::distance(begin(), pos));
     }
@@ -126,12 +126,12 @@ AudioFile* Playlist::operator[](u64 n) {
 }
 Playlist::~Playlist() {
     {
-        LOCK_GUARD_D(playing_playlist.lock, pplock);
+        std::lock_guard<std::mutex> lock(playing_playlist.lock);
         if(playing_playlist == this) {
             DEBUG_OUT("Deleting playing playlist!");
         }
     }
-    LOCK_GUARD_D(playlist_member.lock, pmlock);
+    std::lock_guard<std::mutex> lock(playlist_member.lock);
     clear();
 }
 } // namespace boxten
